@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { touchInput } from '@/game/input/TouchInput';
 
 export interface Intent {
   moveX: -1 | 0 | 1;
@@ -27,7 +28,7 @@ export const neutralIntent = (): Intent => ({
 type KeyMap = Record<'left' | 'right' | 'a' | 'd' | 'up' | 'w' | 'space' | 'shift' | 'x' | 'c' | 'down' | 's'
   | 'j' | 'k' | 'l' | 'one' | 'two' | 'e' | 'h' | 'g', Phaser.Input.Keyboard.Key>;
 
-/** Reads the keyboard into a reusable intent struct. Touch/gamepad could feed the same struct later. */
+/** Reads the keyboard (and the virtual touch controls) into one reusable intent struct. */
 export class PlayerInput {
   private readonly keys: KeyMap;
   readonly intent: Intent = neutralIntent();
@@ -57,23 +58,26 @@ export class PlayerInput {
   /** `locked` zeroes gameplay input (dialogue, death) but still tracks edge state so presses don't leak. */
   poll(locked: boolean): Intent {
     const k = this.keys, I = this.intent;
-    const jump = this.took('space', 'up', 'w');
-    const dash = this.took('shift'), dodge = this.took('x', 'c');
-    const light = this.took('j'), kick = this.took('k'), heavy = this.took('l'), a1 = this.took('one'), a2 = this.took('two');
-    const interact = this.took('e'), tonic = this.took('h'), cell = this.took('g');
+    const T = touchInput;
+    const jump = this.took('space', 'up', 'w') || T.take('jump');
+    const dash = this.took('shift') || T.take('dash'), dodge = this.took('x', 'c') || T.take('dodge');
+    const light = this.took('j') || T.take('light'), kick = this.took('k') || T.take('kick'), heavy = this.took('l') || T.take('heavy');
+    const a1 = this.took('one') || T.take('ability1'), a2 = this.took('two') || T.take('ability2');
+    const interact = this.took('e') || T.take('interact'), tonic = this.took('h') || T.take('tonic'), cell = this.took('g') || T.take('cell');
     this.edge.clear();
+    T.dropEdges();
     if (locked) {
       Object.assign(I, neutralIntent());
       I.interact = interact;
       return I;
     }
-    const left = k.left.isDown || k.a.isDown, right = k.right.isDown || k.d.isDown;
+    const left = k.left.isDown || k.a.isDown || T.moveX < 0, right = k.right.isDown || k.d.isDown || T.moveX > 0;
     I.moveX = left === right ? 0 : left ? -1 : 1;
     I.jumpPressed = jump;
-    I.jumpHeld = k.space.isDown || k.up.isDown || k.w.isDown;
+    I.jumpHeld = k.space.isDown || k.up.isDown || k.w.isDown || T.isHeld('jump');
     I.dashPressed = dash;
     I.dodgePressed = dodge;
-    I.blockHeld = k.down.isDown || k.s.isDown;
+    I.blockHeld = k.down.isDown || k.s.isDown || T.down || T.isHeld('block');
     I.downHeld = I.blockHeld;
     I.light = light; I.kick = kick; I.heavy = heavy;
     I.ability1 = a1; I.ability2 = a2;
@@ -84,6 +88,7 @@ export class PlayerInput {
   reset(): void {
     this.kb.resetKeys();
     this.edge.clear();
+    touchInput.releaseAll();
   }
 
   destroy(): void {

@@ -6,6 +6,7 @@ import { SettingsPanel } from '@/app/components/settings/SettingsPanel';
 import { ControlsScreen } from '@/app/components/screens/ControlsScreen';
 import { SkillTree } from '@/app/components/menus/SkillTree';
 import { InventoryPanel } from '@/app/components/menus/InventoryPanel';
+import { AboutScreen } from '@/app/components/screens/AboutScreen';
 import { QuestPanel } from '@/app/components/menus/QuestPanel';
 import { t as tr } from '@/i18n';
 
@@ -16,6 +17,7 @@ const TABS: { id: Panel; label: string }[] = [
   { id: 'quests', label: 'Quests' },
   { id: 'settings', label: 'Settings' },
   { id: 'controls', label: 'Controls' },
+  { id: 'about', label: 'About' },
 ];
 
 export function PauseMenu(): ReactElement {
@@ -50,6 +52,7 @@ export function PauseMenu(): ReactElement {
               >
                 {tr(saving === 'ok' ? 'Saved ✓' : saving === 'fail' ? 'Save failed' : 'Save Game')}
               </button>
+              <button className="btn" onClick={() => setPanel('about')}>{tr('About / Credits')}</button>
               <button className="btn danger" onClick={() => void gameApi.returnToMenu()}>{tr('Main Menu')}</button>
               <p className="muted small">{tr('Progress is also auto-saved at lamps, level-ups and quests.')}</p>
             </div>
@@ -59,6 +62,7 @@ export function PauseMenu(): ReactElement {
           {panel === 'quests' && <QuestPanel />}
           {panel === 'settings' && <SettingsPanel />}
           {panel === 'controls' && <ControlsScreen />}
+          {panel === 'about' && <AboutScreen />}
         </div>
       </div>
     </div>

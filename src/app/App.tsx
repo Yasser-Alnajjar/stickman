@@ -12,13 +12,26 @@ import { Hud } from '@/app/components/hud/Hud';
 import { LoadingScreen } from '@/app/components/screens/LoadingScreen';
 import { DeathScreen } from '@/app/components/screens/DeathScreen';
 import { ErrorBanner } from '@/app/components/screens/ErrorBanner';
+import { TouchControls } from '@/app/components/touch/TouchControls';
+import { RotateDevice } from '@/app/components/screens/RotateDevice';
+import { useDevice } from '@/app/mobile/device';
+import { touchInput } from '@/game/input/TouchInput';
 import { t, useLang } from '@/i18n';
 
 /** Remounted when the language changes so every string re-renders; the Phaser canvas is a sibling and is untouched. */
 function Overlays({ play }: { play: string }): ReactElement {
+  const { touch, portrait } = useDevice();
+  // Gameplay must never run unseen behind the rotate message, and held touches must not stay stuck.
+  useEffect(() => {
+    if (!portrait) return;
+    touchInput.releaseAll();
+    if (useGameStore.getState().play === 'playing') gameApi.pause();
+  }, [portrait]);
   return (
     <>
       {(play === 'playing' || play === 'paused' || play === 'dead') && <Hud />}
+      {play === 'playing' && touch && !portrait && <TouchControls />}
+      {portrait && <RotateDevice />}
       {play === 'loading' && <LoadingScreen />}
       {play === 'menu' && <MainMenu />}
       {play === 'paused' && <PauseMenu />}

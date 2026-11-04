@@ -6,6 +6,7 @@ import { ABILITIES, ABILITY_ORDER } from '@/game/config/abilities';
 import { NPCS } from '@/game/config/npcs';
 import { MAX_LEVEL, xpToNext } from '@/game/config/progression';
 import { trackedQuests } from '@/game/systems/quests/quest-engine';
+import { useDevice } from '@/app/mobile/device';
 import { t } from '@/i18n';
 
 function Bar({ value, max, cls, label }: { value: number; max: number; cls: string; label: string }): ReactElement {
@@ -52,6 +53,7 @@ function Dialogue(): ReactElement | null {
 }
 
 export function Hud(): ReactElement {
+  const { touch } = useDevice();
   const hud = useGameStore((s) => s.hud);
   const profile = useGameStore((s) => s.profile);
   const boss = useGameStore((s) => s.boss);
@@ -99,7 +101,7 @@ export function Hud(): ReactElement {
         </div>
       )}
 
-      <div className="hud-bottom">
+      <div className="hud-bottom" data-hud-abilities>
         <div className="abilities">
           {ABILITY_ORDER.map((id) => {
             const def = ABILITIES[id];
@@ -123,7 +125,7 @@ export function Hud(): ReactElement {
       </div>
 
       {combo >= 2 && <div className="combo" key={combo}>{combo}<small> {t('HIT COMBO')}</small></div>}
-      {prompt && !dialogue && <div className="prompt">{prompt}</div>}
+      {prompt && !dialogue && <div className="prompt">{touch ? prompt.replace(/Press E to/i, 'Tap 💬 to').replace(/اضغط E/, 'اضغط 💬') : prompt}</div>}
       {banner && <div className="banner"><h2>{banner.title}</h2>{banner.subtitle && <p>{banner.subtitle}</p>}</div>}
       <Dialogue />
       <Toasts />

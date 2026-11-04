@@ -4,6 +4,7 @@ import { audio } from '@/game/managers/AudioManager';
 import { isFullscreen, toggleFullscreen } from '@/app/fullscreen';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
+import { getTouchPref, setTouchPref, useDevice, type TouchPref } from '@/app/mobile/device';
 import { t, setLang, useLang, LANGS, type Lang } from '@/i18n';
 
 function Slider({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }): ReactElement {
@@ -21,6 +22,7 @@ export function SettingsPanel(): ReactElement {
   const shake = useGameStore((s) => s.shake);
   const [fs, setFs] = useState(isFullscreen());
   const lang = useLang();
+  useDevice();
   const setAudio = (p: Partial<typeof a>): void => {
     gameApi.setAudio(p);
     useGameStore.setState({ audio: { ...audio.settings } });
@@ -31,6 +33,15 @@ export function SettingsPanel(): ReactElement {
         <span>{t('Language')}</span>
         <select value={lang} onChange={(e) => setLang(e.target.value as Lang)} aria-label={t('Language')}>
           {LANGS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+        </select>
+        <span />
+      </label>
+      <label className="setting">
+        <span>{t('Touch controls')}</span>
+        <select value={getTouchPref()} onChange={(e) => setTouchPref(e.target.value as TouchPref)} aria-label={t('Touch controls')}>
+          <option value="auto">{t('Auto')}</option>
+          <option value="on">{t('Always on')}</option>
+          <option value="off">{t('Off')}</option>
         </select>
         <span />
       </label>

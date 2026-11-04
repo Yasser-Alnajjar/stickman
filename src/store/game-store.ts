@@ -4,7 +4,7 @@ import type { PlayState } from '@/game/events/bus';
 import { createProfile } from '@/game/systems/progression/profile';
 import { DEFAULT_AUDIO, type AudioSettings, audio } from '@/game/managers/AudioManager';
 
-export type Panel = 'root' | 'inventory' | 'skills' | 'quests' | 'settings' | 'controls' | 'credits';
+export type Panel = 'root' | 'inventory' | 'skills' | 'quests' | 'settings' | 'controls' | 'about';
 
 export interface GameStore {
   play: PlayState;

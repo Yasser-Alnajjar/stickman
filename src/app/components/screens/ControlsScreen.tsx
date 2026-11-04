@@ -1,5 +1,13 @@
 import type { ReactElement } from 'react';
+import { useDevice } from '@/app/mobile/device';
 import { t } from '@/i18n';
+const TOUCH_ROWS: [string, string][] = [
+  ['◐', 'Left stick: move. Pull down to block'],
+  ['⤒  👊  💥  🦶', 'Jump, light, heavy, kick'],
+  ['⇢  ↺  🛡', 'Dash, dodge, block (hold)'],
+  ['🔥  ⚡', 'Abilities (once unlocked)'],
+  ['🧪  🔋  ❚❚', 'Health Tonic, Energy Cell, Pause'],
+];
 const ROWS: [string, string][] = [
   ['A / D  ·  ← / →', 'Move'],
   ['Space  ·  W  ·  ↑', 'Jump (hold for height). Down + Jump drops through ledges'],
@@ -18,8 +26,12 @@ const ROWS: [string, string][] = [
 ];
 
 export function ControlsScreen(): ReactElement {
+  const { touch } = useDevice();
   return (
     <div className="controls-grid">
+      {touch && TOUCH_ROWS.map(([k, v]) => (
+        <div className="control-row" key={k}><kbd>{k}</kbd><span>{t(v)}</span></div>
+      ))}
       {ROWS.map(([k, v]) => (
         <div className="control-row" key={k}>
           <kbd>{k}</kbd>

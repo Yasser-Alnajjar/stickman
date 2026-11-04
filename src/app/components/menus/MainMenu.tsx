@@ -4,7 +4,7 @@ import { useGameStore } from '@/store/game-store';
 import { gameApi } from '@/game/managers/game-api';
 import { SettingsPanel } from '@/app/components/settings/SettingsPanel';
 import { ControlsScreen } from '@/app/components/screens/ControlsScreen';
-import { CreditsScreen } from '@/app/components/screens/CreditsScreen';
+import { AboutScreen } from '@/app/components/screens/AboutScreen';
 import { t } from '@/i18n';
 
 export function MainMenu(): ReactElement {
@@ -16,14 +16,16 @@ export function MainMenu(): ReactElement {
   useEffect(() => { first.current?.focus(); }, [panel]);
 
   if (panel !== 'root') {
-    const titles = { settings: t('Settings'), controls: t('Controls'), credits: t('Credits') } as Record<string, string>;
+    const titles = { settings: t('Settings'), controls: t('Controls'), about: t('About / Credits') } as Record<string, string>;
     return (
       <div className="screen center menu">
         <div className="card wide">
           <h2>{titles[panel] ?? ''}</h2>
+          <div className="card-body">
           {panel === 'settings' && <SettingsPanel />}
           {panel === 'controls' && <ControlsScreen />}
-          {panel === 'credits' && <CreditsScreen />}
+          {panel === 'about' && <AboutScreen />}
+          </div>
           <button ref={first} className="btn" onClick={() => setPanel('root')}>{t('Back')}</button>
         </div>
       </div>
@@ -46,7 +48,7 @@ export function MainMenu(): ReactElement {
         </button>
         <button className="btn" onClick={() => setPanel('settings')}>{t('Settings')}</button>
         <button className="btn" onClick={() => setPanel('controls')}>{t('Controls')}</button>
-        <button className="btn" onClick={() => setPanel('credits')}>{t('Credits')}</button>
+        <button className="btn" onClick={() => setPanel('about')}>{t('About / Credits')}</button>
       </div>
     </div>
   );
