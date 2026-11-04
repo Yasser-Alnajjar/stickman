@@ -30,7 +30,7 @@ export const AR: Record<string, string> = {
   'Fire Punch (energy)': 'لكمة النار (طاقة)', 'Lightning Dash (energy)': 'اندفاع البرق (طاقة)', 'Talk / advance dialogue': 'تحدّث / متابعة الحوار',
   'Use Health Tonic  ·  Energy Cell': 'استخدم إكسير الصحة · خلية الطاقة', 'Pause menu  ·  Skills': 'قائمة الإيقاف · المهارات', 'Show hitboxes (debug)': 'إظهار صناديق الإصابة (تصحيح)',
   'Design, code, animation and audio: all original and procedural. No third-party assets.': 'التصميم والبرمجة والرسوم والصوت: أصلية بالكامل ومولّدة برمجيًا. بلا أصول من أطراف ثالثة.',
-  'Built with Phaser 3, React, TypeScript, Vite and Zustand.': 'مبنية باستخدام Phaser 3 وReact وTypeScript وVite وZustand.',
+  'A neon city has fallen to street gangs and a hidden Warden. Train with Master Ren, take on quests, level up your skills, and fight your way to the boss arena.': 'سقطت مدينة النيون في يد العصابات وحارسٍ خفيّ. تدرّب مع المعلّم رِن، وأنجز المهام، وطوّر مهاراتك، وشقّ طريقك إلى ساحة الزعيم.',
   'Inspired by the feel of side-scrolling stickman action games.': 'مستوحاة من ألعاب الأكشن الجانبية للشخصيات العصوية.',
   // --- skills / inventory / quests UI
   'Level': 'المستوى', 'Skill points': 'نقاط المهارة', 'Abilities': 'القدرات', 'Attributes': 'السمات', 'Requires level {n}': 'يتطلب المستوى {n}',
