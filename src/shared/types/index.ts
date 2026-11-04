@@ -1,0 +1,152 @@
+/** Shared, engine-agnostic types. Nothing in here may import Phaser or React. */
+
+export type Team = 'player' | 'enemy';
+export type Facing = 1 | -1;
+export type RegionId = 'city' | 'boss_arena';
+export type AbilityId = 'fire_punch' | 'lightning_dash';
+export type AttributeId = 'vitality' | 'strength' | 'endurance' | 'agility' | 'focus';
+export type ItemId = 'health_tonic' | 'energy_cell' | 'keycard' | 'warden_core';
+export type EnemyKind = 'basic' | 'fast' | 'heavy' | 'boss';
+export type Element = 'physical' | 'fire' | 'lightning';
+export type SfxName =
+  | 'step' | 'jump' | 'land' | 'punch' | 'kick' | 'heavy' | 'whoosh' | 'hit' | 'hitHeavy' | 'block'
+  | 'perfect' | 'dash' | 'dodge' | 'fire' | 'zap' | 'enemyHit' | 'enemyDie' | 'hurt' | 'death'
+  | 'pickup' | 'levelUp' | 'checkpoint' | 'quest' | 'ui' | 'uiBack' | 'telegraph' | 'slam' | 'roar' | 'gate';
+export type MusicTrack = 'city' | 'boss' | 'none';
+
+export interface Rect { x: number; y: number; w: number; h: number }
+
+/* ---------------- Combat data ---------------- */
+
+export interface AttackDef {
+  id: string;
+  name: string;
+  damage: number;
+  /** Hitbox centre is `ox` px in front of the owner's centre; `oy` is vertical offset from centre. */
+  hitbox: { w: number; h: number; ox: number; oy: number };
+  startup: number;
+  active: number;
+  recovery: number;
+  knockback: { x: number; y: number };
+  hitStun: number;
+  staminaCost?: number;
+  energyCost?: number;
+  /** Player only: ms after the attack ends in which a chain input is still accepted. */
+  comboWindow?: number;
+  /** Forward velocity impulse applied when the active phase starts. */
+  lunge?: number;
+  hitStop: number;
+  shake: number;
+  anim: string;
+  sfx: SfxName;
+  /** Chain table: which attack follows for a given input. */
+  next?: { light?: string; kick?: string; heavy?: string };
+  /** Enemy only: attack id launched immediately after this one (skips recovery). */
+  chain?: string;
+  /** Enemy only: ignore stagger while winding up/attacking. */
+  superArmor?: boolean;
+  telegraph?: boolean;
+}
+
+export type AttackPhase = 'idle' | 'startup' | 'active' | 'recovery';
+
+export interface HitSpec {
+  def: AttackDef;
+  damageMult: number;
+  element: Element;
+  comboScale: number;
+  burn?: { dps: number; duration: number };
+  extraStun?: number;
+}
+
+export type HitOutcome = 'ignored' | 'hit' | 'blocked' | 'perfect' | 'killed';
+
+/* ---------------- Progression ---------------- */
+
+export interface QuestObjective {
+  type: 'kill' | 'reach' | 'collect' | 'boss';
+  /** kill: enemy kind or 'any'; reach: zone id; collect: item id; boss: boss id */
+  target: string;
+  count: number;
+  label: string;
+}
+
+export interface QuestReward {
+  xp: number;
+  gold?: number;
+  items?: Partial<Record<ItemId, number>>;
+  flags?: string[];
+}
+
+export interface QuestDef {
+  id: string;
+  title: string;
+  giver: string;
+  summary: string;
+  requires?: string[];
+  objectives: QuestObjective[];
+  reward: QuestReward;
+  /** Completes (and pays out) automatically when objectives are done, no turn-in. */
+  autoComplete?: boolean;
+  offer: string[];
+  inProgress: string[];
+  turnIn: string[];
+}
+
+export type QuestStatus = 'active' | 'ready' | 'completed';
+export interface QuestProgress { status: QuestStatus; progress: number[] }
+
+export type QuestEvent =
+  | { type: 'kill'; target: EnemyKind }
+  | { type: 'reach'; target: string }
+  | { type: 'collect'; target: ItemId; count: number }
+  | { type: 'boss'; target: string };
+
+export interface CheckpointRef { region: RegionId; id: string; x: number; y: number }
+
+export interface ProfileData {
+  level: number;
+  xp: number;
+  skillPoints: number;
+  abilities: Record<AbilityId, number>;
+  attributes: Record<AttributeId, number>;
+  health: number;
+  quests: Record<string, QuestProgress>;
+  defeatedBosses: string[];
+  flags: Record<string, boolean>;
+  collected: string[];
+  checkpoint: CheckpointRef;
+  inventory: { items: Partial<Record<ItemId, number>>; gold: number };
+  stats: { kills: number; deaths: number; playTimeMs: number };
+}
+
+export interface PlayerStats {
+  maxHealth: number;
+  maxStamina: number;
+  maxEnergy: number;
+  attack: number;
+  defense: number;
+  moveSpeedMult: number;
+  staminaRegen: number;
+  energyRegen: number;
+}
+
+/* ---------------- UI views (published through the event bus) ---------------- */
+
+export interface HudSnapshot {
+  health: number; maxHealth: number;
+  stamina: number; maxStamina: number;
+  energy: number; maxEnergy: number;
+  cooldowns: Record<AbilityId, { remaining: number; total: number }>;
+}
+
+export interface DialogueView {
+  npcName: string;
+  text: string;
+  choices: string[] | null;
+  hasNext: boolean;
+}
+
+export interface BossView { name: string; health: number; maxHealth: number; phase: number }
+
+export interface ToastMsg { id: number; text: string; kind: 'info' | 'good' | 'warn' | 'level' }

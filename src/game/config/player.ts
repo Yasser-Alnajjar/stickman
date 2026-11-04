@@ -1,0 +1,27 @@
+export const PLAYER_CFG = {
+  width: 26,
+  height: 88,
+  runSpeed: 340,
+  walkAnimThreshold: 210,
+  groundAccel: 3800,
+  groundDecel: 5200,
+  airAccel: 2500,
+  airDecel: 1500,
+  jumpVelocity: 800,
+  /** Extra gravity while rising with the jump key released (variable jump height). */
+  lowJumpGravity: 2300,
+  /** Extra gravity while falling for a snappier arc. */
+  fallGravity: 700,
+  maxFallSpeed: 1100,
+  coyoteMs: 110,
+  jumpBufferMs: 130,
+  dash: { duration: 170, speed: 880, stamina: 20, cooldown: 450, iframes: 120 },
+  dodge: { duration: 380, speed: 450, stamina: 25, cooldown: 300, iframeStart: 30, iframeEnd: 290 },
+  block: { damageFactor: 0.15, perfectWindow: 150, staminaPerDamage: 1.6, guardBreakStun: 900, perfectEnergy: 12 },
+  hurtIframes: 550,
+  base: { maxHealth: 100, maxStamina: 100, maxEnergy: 100, attack: 10, defense: 4, staminaRegen: 30, energyRegen: 2.5 },
+  staminaRegenDelay: 700,
+  energyOnHit: 4,
+  comboResetMs: 1600,
+  inputBufferMs: 220,
+} as const;
