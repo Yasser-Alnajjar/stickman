@@ -15,6 +15,17 @@ describe('save schema', () => {
     }
   });
 
+  it('persists killed enemies and tolerates older saves without them', () => {
+    const p = createProfile();
+    p.killedEnemies.push('city:e1', 'docks:dk3');
+    const res = validateSave(JSON.parse(JSON.stringify(serializeSave(p))));
+    expect(res.ok && res.save.profile.killedEnemies).toEqual(['city:e1', 'docks:dk3']);
+    const old = JSON.parse(JSON.stringify(serializeSave(createProfile())));
+    delete old.profile.killedEnemies;
+    const res2 = validateSave(old);
+    expect(res2.ok && res2.save.profile.killedEnemies).toEqual([]);
+  });
+
   it('rejects garbage and wrong versions', () => {
     expect(validateSave(null).ok).toBe(false);
     expect(validateSave('x').ok).toBe(false);

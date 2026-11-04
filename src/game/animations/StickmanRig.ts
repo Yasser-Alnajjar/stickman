@@ -202,7 +202,7 @@ export class StickmanRig {
     g.fillStyle(col, a);
     g.fillCircle(xs[HEAD], ys[HEAD], hr);
     // eye
-    g.fillStyle(acc === 'warden' ? 0xff2020 : 0x10131f, a);
+    g.fillStyle(acc === 'warden' ? 0xff2020 : acc === 'anchor' ? 0xffb454 : acc === 'crown' ? 0xfff2a0 : 0x10131f, a);
     g.fillCircle(xs[HEAD] + F * hr * 0.45, ys[HEAD] - hr * 0.12, Math.max(1.6, hr * 0.2));
 
     this.drawFrontAccessories(g, F, s, a, acc, hr, col);
@@ -213,7 +213,7 @@ export class StickmanRig {
     const w = Math.sin(this.time * 9);
     const stream = Math.min(1, Math.abs(this.velX) / 300);
     const { accent } = this.style;
-    if (acc === 'scarf' || acc === 'hero') {
+    if (acc === 'scarf' || acc === 'hero' || acc === 'blade') {
       const len = (acc === 'hero' ? 26 : 22) * s;
       const nx = xs[SHO], ny = ys[SHO] - 2 * s;
       g.lineStyle(this.style.lineWidth * 0.8, accent, a);
@@ -229,6 +229,13 @@ export class StickmanRig {
       g.lineStyle(2.4, accent, a);
       g.lineBetween(hx - F * 5, hy - 2, hx - F * (16 + stream * 8), hy + 3 + w * 2);
       g.lineBetween(hx - F * 5, hy - 2, hx - F * (13 + stream * 8), hy - 3 - w * 2);
+    } else if (acc === 'crown') {
+      // flame train
+      const sx0 = xs[SHO], sy0 = ys[SHO], hipx = xs[HIP], hipy = ys[HIP];
+      g.fillStyle(0xd13a14, a);
+      g.fillTriangle(sx0, sy0 - 2 * s, hipx - F * (34 + stream * 40) * s + w * 4, hipy + 30 * s, hipx, hipy + 4 * s);
+      g.fillStyle(accent, a * 0.8);
+      g.fillTriangle(sx0, sy0, hipx - F * (18 + stream * 26) * s + w * 3, hipy + 22 * s, hipx, hipy);
     } else if (acc === 'warden') {
       // heavy cape
       const sx0 = xs[SHO], sy0 = ys[SHO];
@@ -275,6 +282,32 @@ export class StickmanRig {
       g.fillCircle(xs[SHO] + F * 2, ys[SHO] + 3 * s, 8 * s);
       g.lineStyle(4, 0xb0b4d0, a);
       g.lineBetween(xs[HIP] - 10 * s, ys[HIP] - 2 * s, xs[HIP] + 10 * s, ys[HIP] - 2 * s);
+    } else if (acc === 'hood') {
+      g.fillStyle(tint(col, 0.55), a);
+      g.fillTriangle(hx - hr * 1.15, hy + hr * 0.3, hx + hr * 1.15, hy + hr * 0.3, hx - F * hr * 0.35, hy - hr * 2.1);
+    } else if (acc === 'shield') {
+      const top = ys[SHO] - 2 * s, bot = ys[HIP] + 6 * s, sx = xs[SHO] + F * 13 * s;
+      g.fillStyle(tint(col, 0.7), a).fillRect(sx - 9 * s, top, 18 * s, bot - top);
+      g.lineStyle(3, accent, a).strokeRect(sx - 9 * s, top, 18 * s, bot - top);
+      g.fillStyle(accent, a).fillRect(sx - 2, top + 4, 4, bot - top - 8);
+      g.fillStyle(tint(col, 0.6), a).fillRect(hx - hr * 1.05, hy - hr * 1.05, hr * 2.1, hr * 0.8); // helm
+    } else if (acc === 'blade') {
+      g.lineStyle(3, 0xe6ecff, a);
+      g.lineBetween(xs[A_HA], ys[A_HA], xs[A_HA] + F * 36 * s, ys[A_HA] - 26 * s);
+      g.lineStyle(2, accent, a).lineBetween(hx - F * hr, hy - hr * 0.3, hx + F * hr, hy - hr * 0.3);
+    } else if (acc === 'anchor') {
+      const ax = xs[B_HA], ay = ys[B_HA];
+      g.lineStyle(5, 0x8a97a8, a);
+      g.lineBetween(ax, ay - 46 * s, ax, ay + 34 * s);
+      g.lineBetween(ax - 16 * s, ay - 34 * s, ax + 16 * s, ay - 34 * s);
+      g.lineBetween(ax - 18 * s, ay + 18 * s, ax, ay + 34 * s);
+      g.lineBetween(ax + 18 * s, ay + 18 * s, ax, ay + 34 * s);
+      g.fillStyle(accent, a).fillRect(hx - hr * 1.1, hy - hr * 1.5, hr * 2.2, hr * 0.7); // captain's hat
+      g.fillStyle(tint(col, 0.55), a).fillCircle(xs[SHO], ys[SHO] + 3 * s, 9 * s);
+    } else if (acc === 'crown') {
+      g.fillStyle(accent, a);
+      for (let i = -1; i <= 1; i++) g.fillTriangle(hx + i * hr * 0.7 - hr * 0.3, hy - hr * 0.9, hx + i * hr * 0.7 + hr * 0.3, hy - hr * 0.9, hx + i * hr * 0.7, hy - hr * (i === 0 ? 2.5 : 2));
+      g.fillStyle(0xff7a2a, a * 0.9).fillCircle(xs[A_HA], ys[A_HA], 7 * s);
     } else if (acc === 'elder') {
       g.lineStyle(3, 0xffffff, a);
       g.lineBetween(hx + F * hr * 0.2, hy + hr * 0.7, hx + F * hr * 0.35, hy + hr * 1.9); // beard

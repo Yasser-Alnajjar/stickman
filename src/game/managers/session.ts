@@ -10,6 +10,7 @@ import { ABILITIES } from '@/game/config/abilities';
 import { saveManager } from '@/persistence/save-manager';
 import { audio } from '@/game/managers/AudioManager';
 import { t } from '@/i18n';
+import { devFlags } from '@/devtools/flags';
 
 export interface PlayerHooks {
   restoreHealth(amount: number): void;
@@ -154,6 +155,8 @@ class GameSession {
   /* ---------- persistence ---------- */
 
   async save(auto: boolean): Promise<boolean> {
+    // Developer sandbox: the in-memory profile is disposable and must never overwrite the player's real save.
+    if (__DEV_TOOLS__ && devFlags.sandbox) return true;
     try {
       this.profile.health = Math.max(1, this.profile.health);
       await saveManager.save(auto ? 'auto' : 'manual', this.profile);

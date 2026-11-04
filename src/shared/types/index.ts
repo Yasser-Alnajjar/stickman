@@ -2,11 +2,12 @@
 
 export type Team = 'player' | 'enemy';
 export type Facing = 1 | -1;
-export type RegionId = 'city' | 'boss_arena';
+export type RegionId = 'city' | 'boss_arena' | 'docks' | 'tyrant_arena' | 'foundry' | 'empress_arena';
+export type BossId = 'warden' | 'marrow' | 'ignis';
 export type AbilityId = 'fire_punch' | 'lightning_dash';
 export type AttributeId = 'vitality' | 'strength' | 'endurance' | 'agility' | 'focus';
-export type ItemId = 'health_tonic' | 'energy_cell' | 'keycard' | 'warden_core';
-export type EnemyKind = 'basic' | 'fast' | 'heavy' | 'boss';
+export type ItemId = 'health_tonic' | 'energy_cell' | 'keycard' | 'warden_core' | 'tyrant_anchor' | 'ember_heart';
+export type EnemyKind = 'basic' | 'fast' | 'heavy' | 'archer' | 'guard' | 'blade' | 'boss';
 export type Element = 'physical' | 'fire' | 'lightning';
 export type SfxName =
   | 'step' | 'jump' | 'land' | 'punch' | 'kick' | 'heavy' | 'whoosh' | 'hit' | 'hitHeavy' | 'block'
@@ -113,6 +114,8 @@ export interface ProfileData {
   health: number;
   quests: Record<string, QuestProgress>;
   defeatedBosses: string[];
+  /** Spawn keys (`region:spawnId`) of enemies killed this playthrough; they never respawn. */
+  killedEnemies: string[];
   flags: Record<string, boolean>;
   collected: string[];
   checkpoint: CheckpointRef;

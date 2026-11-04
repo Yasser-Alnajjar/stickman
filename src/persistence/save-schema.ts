@@ -17,7 +17,7 @@ export type Migration = (raw: Record<string, unknown>) => Record<string, unknown
 /** migrations[n] upgrades a version-n save to version n+1. */
 export const MIGRATIONS: Record<number, Migration> = {};
 
-const REGIONS: RegionId[] = ['city', 'boss_arena'];
+const REGIONS: RegionId[] = ['city', 'boss_arena', 'docks', 'tyrant_arena', 'foundry', 'empress_arena'];
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown, min: number, max: number, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
@@ -117,6 +117,7 @@ export function validateSave(raw: unknown): SaveResult {
     health: 0,
     quests,
     defeatedBosses: strArr(p.defeatedBosses),
+    killedEnemies: Array.isArray(p.killedEnemies) ? [...new Set(p.killedEnemies.filter((s): s is string => typeof s === 'string' && s.length < 64))].slice(0, 2048) : [],
     flags,
     collected: strArr(p.collected),
     checkpoint,

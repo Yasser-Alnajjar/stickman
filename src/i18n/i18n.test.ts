@@ -7,7 +7,7 @@ import { NPCS } from '@/game/config/npcs';
 import { ABILITIES } from '@/game/config/abilities';
 import { ATTRIBUTES } from '@/game/config/progression';
 import { ITEMS } from '@/game/config/items';
-import { ENEMIES, WARDEN } from '@/game/config/enemies';
+import { BOSSES, ENEMIES } from '@/game/config/enemies';
 import { REGIONS } from '@/game/config/regions';
 
 function walk(dir: string): string[] {
@@ -38,7 +38,8 @@ describe('Arabic translations', () => {
     for (const a of Object.values(ATTRIBUTES)) keys.push(a.name, a.description, a.perRank);
     for (const i of Object.values(ITEMS)) keys.push(i.name, i.description);
     for (const e of Object.values(ENEMIES)) keys.push(e.name);
-    keys.push(WARDEN.name);
+    for (const b of Object.values(BOSSES)) keys.push(b.name, b.subtitle);
+    for (const tag of ['Cargo, cranes and cutthroats. Marrow rules the pier.', 'The forges never cool. Ignis awaits at the heart.']) keys.push(tag);
     for (const r of Object.values(REGIONS)) keys.push(r.name, ...r.checkpoints.map((c) => c.name));
     expect(missing(keys)).toEqual([]);
   });

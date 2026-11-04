@@ -7,7 +7,8 @@ const config: CapacitorConfig = {
   backgroundColor: '#070816',
   android: {
     allowMixedContent: false,
-    webContentsDebuggingEnabled: true, // debug builds only matter; lets chrome://inspect attach for testing
+    // chrome://inspect attach is opt-in (`CAP_DEBUG=1 cap sync`); release builds never enable it.
+    webContentsDebuggingEnabled: process.env.CAP_DEBUG === '1',
   },
 };
 

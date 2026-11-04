@@ -86,3 +86,31 @@ describe('city specifics', () => {
     expect(gate.h).toBeGreaterThan(MAX_RISE + 88);
   });
 });
+
+describe('world graph', () => {
+  const all = Object.values(REGIONS);
+  it('every exit leads to an existing region and spawn point', () => {
+    for (const r of all) for (const z of r.zones.filter((z) => z.kind === 'exit')) {
+      expect(REGIONS[z.to!], `${r.id}.${z.id}`).toBeDefined();
+      expect(REGIONS[z.to!].spawnPoints[z.spawn!], `${r.id}.${z.id} -> ${z.to}.${z.spawn}`).toBeDefined();
+    }
+  });
+  it('spawn ids are unique per region (they key the persistent kill list)', () => {
+    for (const r of all) {
+      const ids = r.spawns.map((s) => s.id);
+      expect(new Set(ids).size, r.id).toBe(ids.length);
+      expect(ids.every((id) => !id.includes(':')), r.id).toBe(true);
+    }
+  });
+  it('has three boss arenas, each with a distinct boss and enough regular enemies overall', () => {
+    const bosses = all.filter((r) => r.boss).map((r) => r.boss!.id);
+    expect(new Set(bosses).size).toBe(3);
+    expect(all.reduce((n, r) => n + r.spawns.length, 0)).toBeGreaterThanOrEqual(80);
+  });
+  it('arena exits that lead onward stay locked behind their boss', () => {
+    for (const r of all.filter((r) => r.boss)) for (const z of r.zones.filter((z) => z.id === 'to_next')) expect(z.requiresBoss).toBe(r.boss!.id);
+  });
+  it('enemy placement never starts inside the first 450px of a stage entry', () => {
+    for (const r of all) for (const s of r.spawns) if (r.id !== 'city') expect(s.x, `${r.id}.${s.id}`).toBeGreaterThan(700);
+  });
+});

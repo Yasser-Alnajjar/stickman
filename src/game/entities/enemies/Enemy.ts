@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { AttackPhase, HitSpec } from '@/shared/types';
+import type { AttackDef, AttackPhase, HitSpec } from '@/shared/types';
 import { DEPTH } from '@/shared/constants';
 import { ENEMY_ATTACKS } from '@/game/config/attacks';
 import type { EnemyDef } from '@/game/config/enemies';
@@ -18,6 +18,13 @@ import { t } from '@/i18n';
 export type { EnemyState };
 export { ENEMY_TRANSITIONS };
 
+export interface ProjectileOpts {
+  x: number; y: number; vx: number; vy?: number; life?: number; w?: number; h?: number; color: number;
+  def: AttackDef; burn?: HitSpec['burn'];
+}
+interface Projectile extends Required<Omit<ProjectileOpts, 'burn' | 'def'>> { spec: HitSpec; hits: Set<number> }
+
+const projRect = new Phaser.Geom.Rectangle();
 const IGNORED: HitResult = { outcome: 'ignored', damage: 0, dir: 1 };
 
 export class Enemy extends Fighter {
@@ -52,6 +59,8 @@ export class Enemy extends Fighter {
   private barVisible = false;
   private t = Math.random() * 10;
   protected readonly pt = { x: 0, y: 0 };
+  protected readonly projectiles: Projectile[] = [];
+  private projG: Phaser.GameObjects.Graphics | null = null;
 
   constructor(ctx: WorldContext, readonly def: EnemyDef, x: number, feetY: number, patrolRange = 160) {
     super(ctx, x, feetY, def.width, def.height, def.style, def.kind === 'boss' ? DEPTH.boss : DEPTH.enemies);
@@ -74,6 +83,7 @@ export class Enemy extends Fighter {
 
   update(dt: number): void {
     this.t += dt / 1000;
+    this.updateProjectiles(dt);
     if (!this.alive) { this.updateDead(dt); return; }
     this.sm.tick(dt);
     this.attackCd = Math.max(0, this.attackCd - dt);
@@ -188,6 +198,7 @@ export class Enemy extends Fighter {
         }
 
         this.faceToward(p.cx);
+        if (d.ranged) { this.rangedThink(dx, adx, dy, dt); break; }
         const want = d.attackRange * 0.85;
         if (this.burstT > 0) break;
         if (d.dashApproach && adx > 300 && this.dashCd <= 0 && this.grounded) {
@@ -232,6 +243,17 @@ export class Enemy extends Fighter {
 
       default: break;
     }
+  }
+
+  /** Archers hold their range, back away when pressed and shoot on cooldown. */
+  private rangedThink(dx: number, adx: number, dy: number, dt: number): void {
+    const r = this.def.ranged!, a = this.arcade;
+    const away = dx > 0 ? -1 : 1;
+    const cornered = (away < 0 && a.blocked.left) || (away > 0 && a.blocked.right);
+    if (adx < r.keepAway && !cornered) a.setVelocityX(this.approachVx(away * this.def.chaseSpeed * 1.1, 2600, dt));
+    else if (adx > r.range) a.setVelocityX(this.approachVx(Math.sign(dx) * this.def.chaseSpeed, 2600, dt));
+    else a.setVelocityX(this.approachVx(0, 2600, dt));
+    if (this.attackCd <= 0 && adx <= r.range + 80 && Math.abs(dy) < 170 && this.ctx.getPlayer().alive) this.launchAttack(r.attackId);
   }
 
   protected approachVx(target: number, rate: number, dt: number): number {
@@ -282,7 +304,11 @@ export class Enemy extends Fighter {
     if (!def || !this.sm.is('Attack')) return;
     if (phase === 'active') {
       if (def.lunge) this.arcade.setVelocityX(this.facing * def.lunge);
-      audio.play('whoosh');
+      const rg = this.def.ranged;
+      if (rg && def.id === rg.attackId) {
+        this.fireProjectile({ x: this.cx + this.facing * 30, y: this.cy - 8, vx: this.facing * rg.speed, color: rg.color, def });
+        audio.play('dash');
+      } else audio.play('whoosh');
     } else if (phase === 'idle') {
       const p = this.ctx.getPlayer();
       if (def.chain && p.alive) {
@@ -300,9 +326,13 @@ export class Enemy extends Fighter {
     if (!this.alive) return IGNORED;
     if (this.sm.is('Dodge') && this.sm.elapsed < 240) return IGNORED;
     const dir = this.cx >= fromX ? 1 : -1;
+    // Raised shield: absorbs light frontal hits; heavy blows and abilities break the guard.
+    const guardUp = !!this.def.guard && this.guardRaised(fromX);
+    const breaks = guardUp && (spec.def.damage >= 18 || spec.element !== 'physical');
+    const absorbs = guardUp && !breaks;
     const dmg = computeDamage({
       baseDamage: spec.def.damage, attackerAttack: attacker.attackStat, targetDefense: this.defenseStat,
-      comboScale: spec.comboScale, multiplier: spec.damageMult, block: 'none', blockFactor: 1, vulnerable: this.vulnerable,
+      comboScale: spec.comboScale, multiplier: spec.damageMult * (absorbs ? 1 - this.def.guard! : breaks ? 0.7 : 1), block: 'none', blockFactor: 1, vulnerable: this.vulnerable,
     });
     this.health = Math.max(0, this.health - dmg);
     this.rig.flash(90);
@@ -310,8 +340,55 @@ export class Enemy extends Fighter {
     audio.play('enemyHit');
     if (this.health <= 0) { this.die(); this.arcade.setVelocity(dir * spec.def.knockback.x, spec.def.knockback.y); return { outcome: 'killed', damage: dmg, dir }; }
 
+    if (absorbs) {
+      this.ctx.fx.hitSparks(this.cx + this.facing * this.w * 0.5, this.cy - 6, dir, 5);
+      this.ctx.fx.text(this.cx, this.cy - this.h * 0.75, t('GUARD'), '#8fd3ff', 16, 450);
+      audio.play('block');
+      return { outcome: 'hit', damage: dmg, dir };
+    }
+    if (breaks) {
+      this.stun(1100);
+      this.ctx.fx.text(this.cx, this.cy - this.h * 0.85, t('GUARD BROKEN'), '#ffd24a', 18, 800);
+      return { outcome: 'hit', damage: dmg, dir };
+    }
     this.onDamaged(spec, dir);
     return { outcome: 'hit', damage: dmg, dir };
+  }
+
+  private guardRaised(fromX: number): boolean {
+    if (this.sm.is('Attack') || this.sm.is('Hit') || this.sm.is('Stunned') || this.sm.is('Recover') || this.sm.is('Dodge')) return false;
+    return (fromX >= this.cx ? 1 : -1) === this.facing;
+  }
+
+  /* -------------------------------------------------------------- projectiles */
+
+  protected fireProjectile(o: ProjectileOpts): void {
+    this.projectiles.push({
+      x: o.x, y: o.y, vx: o.vx, vy: o.vy ?? 0, life: o.life ?? 2400, w: o.w ?? 22, h: o.h ?? 12, color: o.color,
+      spec: { def: o.def, damageMult: 1, element: 'physical', comboScale: 1, burn: o.burn }, hits: new Set(),
+    });
+  }
+
+  protected updateProjectiles(dt: number): void {
+    if (!this.projectiles.length) { this.projG?.clear(); return; }
+    const g = (this.projG ??= this.ctx.scene.add.graphics().setDepth(DEPTH.fx - 1));
+    g.clear();
+    const s = dt / 1000;
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const pr = this.projectiles[i];
+      pr.life -= dt;
+      pr.x += pr.vx * s;
+      pr.y += pr.vy * s;
+      let spent = pr.life <= 0 || pr.x < 0 || pr.x > this.ctx.region.width || pr.y > this.ctx.region.groundY + 20;
+      if (!spent) {
+        projRect.setTo(pr.x - pr.w / 2, pr.y - pr.h / 2, pr.w, pr.h);
+        if (this.ctx.combat.hitRect(this, projRect, pr.spec, pr.hits, pr.x - Math.sign(pr.vx) * 30) > 0) spent = true;
+      }
+      if (spent) { this.projectiles.splice(i, 1); continue; }
+      g.fillStyle(pr.color, 0.35).fillCircle(pr.x, pr.y, pr.h * 1.1);
+      g.fillStyle(pr.color, 1).fillEllipse(pr.x, pr.y, pr.w, pr.h);
+      g.fillStyle(0xffffff, 0.8).fillEllipse(pr.x + Math.sign(pr.vx) * 3, pr.y, pr.w * 0.4, pr.h * 0.4);
+    }
   }
 
   /** Reaction to non-lethal damage; the boss overrides this. */
@@ -432,6 +509,7 @@ export class Enemy extends Fighter {
   }
 
   override destroy(): void {
+    this.projG?.destroy();
     this.bar.destroy();
     super.destroy();
   }

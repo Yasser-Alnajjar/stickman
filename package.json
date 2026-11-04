@@ -7,11 +7,13 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/verify-no-devtools.mjs dist",
+    "build:devtools": "tsc --noEmit && vite build --mode devtools --outDir dist-devtools",
+    "verify:prod": "node scripts/verify-no-devtools.mjs dist",
     "preview": "vite preview",
     "e2e": "node scripts/e2e-smoke.mjs",
-    "android:sync": "vite build && cap sync android",
-    "android:apk": "bun run build && cap sync android && cd android && ./gradlew assembleDebug"
+    "android:sync": "npm run build && cap sync android && node scripts/verify-no-devtools.mjs android/app/src/main/assets/public",
+    "android:apk": "bun run build && cap sync android && cd android && node ../scripts/verify-no-devtools.mjs app/src/main/assets/public && ./gradlew assembleDebug && node ../scripts/verify-no-devtools.mjs app/build/outputs/apk"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.2",

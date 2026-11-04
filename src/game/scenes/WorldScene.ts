@@ -5,7 +5,6 @@ import { REGIONS, type RegionDef, type ZoneDef } from '@/game/config/regions';
 import { NPCS } from '@/game/config/npcs';
 import { ITEMS } from '@/game/config/items';
 import { ABILITY_ORDER } from '@/game/config/abilities';
-import { WARDEN } from '@/game/config/enemies';
 import { Fx } from '@/game/managers/Fx';
 import { audio } from '@/game/managers/AudioManager';
 import { session } from '@/game/managers/session';
@@ -24,6 +23,13 @@ import { CheckpointLamp, Pickup } from '@/game/entities/world/WorldObjects';
 import { computeZoom } from '@/game/utils/viewport';
 import type { BackdropScene } from './BackdropScene';
 import { t } from '@/i18n';
+import { devFlags } from '@/devtools/flags';
+
+const REGION_TAGLINE: Partial<Record<RegionId, string>> = {
+  city: 'Find allies. Clear the streets. Open the Warden Gate.',
+  docks: 'Cargo, cranes and cutthroats. Marrow rules the pier.',
+  foundry: 'The forges never cool. Ignis awaits at the heart.',
+};
 
 export interface WorldInit {
   region: RegionId;
@@ -151,12 +157,12 @@ export class WorldScene extends Phaser.Scene {
 
     // --- backdrop / audio / UI state
     (this.scene.get('Backdrop') as BackdropScene).setTheme(region.theme);
-    const bossDone = session.profile.defeatedBosses.includes(WARDEN.id);
-    audio.playMusic(region.id === 'boss_arena' && !bossDone ? 'none' : 'city');
+    const bossDone = !region.boss || session.profile.defeatedBosses.includes(region.boss.id);
+    audio.playMusic(bossDone ? 'city' : 'none');
     this.fx.setShake(this.shakeEnabled());
     bus.emit('region', region.name);
-    if (region.id === 'city') {
-      bus.emit('banner', { title: t(region.name), subtitle: t('Find allies. Clear the streets. Open the Warden Gate.') });
+    if (!region.boss) {
+      bus.emit('banner', { title: t(region.name), subtitle: t(REGION_TAGLINE[region.id] ?? '') });
       this.time.delayedCall(3200, () => bus.emit('banner', null));
     }
     bus.emit('state', 'playing');
@@ -165,7 +171,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-F3', this.toggleDebug, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
     runtime.world = this;
-    if (new URLSearchParams(location.search).has('debug')) window.__stickman = { scene: this, session };
+    if (__DEV_TOOLS__) window.__stickman = { scene: this, session };
     void session.autoSave(true);
   }
 
@@ -219,8 +225,8 @@ export class WorldScene extends Phaser.Scene {
       g.lineBetween(s.x + s.w * 0.16, s.y + 40, s.x + s.w * 0.1, s.y + 78);
       this.secrets.push({ rect: new Phaser.Geom.Rectangle(s.x, s.y, s.w, s.h), g, alpha: 1 });
     }
-    if (region.id === 'boss_arena' && region.bossSpawn && !session.profile.defeatedBosses.includes(WARDEN.id)) {
-      this.boss = new Boss(this.ctx, region.bossSpawn.x, region.groundY - 2);
+    if (region.boss && !session.profile.defeatedBosses.includes(region.boss.id)) {
+      this.boss = new Boss(this.ctx, region.boss.x, region.groundY - 2, region.boss.id);
       this.boss.onDefeated = () => this.onBossDefeated();
     }
   }
@@ -251,6 +257,7 @@ export class WorldScene extends Phaser.Scene {
     const dt = this.clock.tick(delta);
     session.profile.stats.playTimeMs += dt;
 
+    if (__DEV_TOOLS__ && devFlags.infiniteHealth) this.player.health = this.player.maxHealth;
     this.player.update(dt);
     this.spawner.update(dt, this.player.cx);
     this.boss?.update(dt);
@@ -385,8 +392,7 @@ export class WorldScene extends Phaser.Scene {
       audio.play('checkpoint');
       this.fx.ring(z.x + z.w / 2, z.y + z.h / 2, 0xff4d5e, 10, 160, 800, 6);
     } else if (z.kind === 'exit' && z.to) {
-      const arenaLocked = z.id === 'to_city' && !session.profile.defeatedBosses.includes(WARDEN.id);
-      if (arenaLocked) return;
+      if (z.requiresBoss && !session.profile.defeatedBosses.includes(z.requiresBoss) && !(__DEV_TOOLS__ && devFlags.unlockAll)) return;
       this.transitionTo(z.to, z.spawn);
     } else if (z.kind === 'boss' && this.boss && !this.boss.engaged && this.boss.alive) {
       this.startBossFight();
@@ -408,7 +414,7 @@ export class WorldScene extends Phaser.Scene {
   private startBossFight(): void {
     const b = this.boss;
     if (!b) return;
-    const x = 590, h = this.region.groundY;
+    const x = this.region.boss?.barrierX ?? 590, h = this.region.groundY;
     this.barrier = this.add.rectangle(x, h / 2, 30, h, 0, 0);
     this.physics.add.existing(this.barrier, true);
     this.chunks.solidGroup.add(this.barrier);
@@ -427,7 +433,7 @@ export class WorldScene extends Phaser.Scene {
       this.barrier?.destroy();
       this.barrierG?.destroy();
       this.barrier = null; this.barrierG = null;
-      session.toast(t('The seal breaks. The exit is open.'), 'good');
+      session.toast(t(this.region.zones.some((z) => z.requiresBoss) ? 'The seal breaks. The exit is open.' : 'The seal breaks. The way back is open.'), 'good');
       audio.play('gate');
     });
   }

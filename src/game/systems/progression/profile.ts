@@ -15,7 +15,7 @@ export function createProfile(): ProfileData {
   for (const id of ATTRIBUTE_ORDER) attributes[id] = 0;
   const profile: ProfileData = {
     level: 1, xp: 0, skillPoints: 1, abilities, attributes, health: 0,
-    quests: {}, defeatedBosses: [], flags: {}, collected: [],
+    quests: {}, defeatedBosses: [], killedEnemies: [], flags: {}, collected: [],
     checkpoint: { ...START_CHECKPOINT },
     inventory: { items: {}, gold: 0 },
     stats: { kills: 0, deaths: 0, playTimeMs: 0 },

@@ -1,10 +1,20 @@
 import type { SpawnDef } from '@/game/config/regions';
-import { ENEMIES } from '@/game/config/enemies';
+import { ENEMIES, type EnemyDef } from '@/game/config/enemies';
+import { session } from '@/game/managers/session';
 import { Enemy } from '@/game/entities/enemies/Enemy';
 import type { WorldContext } from './context';
 import { hasFallenOut, shouldDespawn, shouldSpawn } from './spawn-rules';
 
 interface Entry { def: SpawnDef; enemy: Enemy | null; killed: boolean }
+
+/** Key under which a placed enemy's death is stored in the profile (and therefore the save file). */
+export const spawnKey = (regionId: string, spawnId: string): string => `${regionId}:${spawnId}`;
+
+/** Region difficulty: same enemy kinds hit and endure more the deeper the stage. */
+export function scaleDef(def: EnemyDef, scale: { hp: number; atk: number } | undefined): EnemyDef {
+  if (!scale) return def;
+  return { ...def, maxHealth: Math.round(def.maxHealth * scale.hp), attack: Math.round(def.attack * scale.atk), xp: Math.round(def.xp * scale.hp), gold: Math.round(def.gold * scale.hp) };
+}
 
 /**
  * Activates enemies near the player and parks them (destroys them) when far away,
@@ -18,12 +28,14 @@ export class EnemySpawner {
   private readonly despawnRadius = 2800;
 
   constructor(private readonly ctx: WorldContext, defs: SpawnDef[]) {
-    this.entries = defs.map((def) => ({ def, enemy: null, killed: false }));
+    // Enemies defeated earlier in this playthrough stay dead across area changes, reloads and saves.
+    const dead = new Set(session.profile.killedEnemies);
+    this.entries = defs.map((def) => ({ def, enemy: null, killed: dead.has(spawnKey(ctx.region.id, def.id)) }));
   }
 
   /** Creates an enemy outside the spawn table (boss minions). */
   create(kind: keyof typeof ENEMIES, x: number, y: number, patrol: number): Enemy {
-    const e = new Enemy(this.ctx, ENEMIES[kind], x, y, patrol);
+    const e = new Enemy(this.ctx, scaleDef(ENEMIES[kind], this.ctx.region.enemyScale), x, y, patrol);
     this.active.add(e);
     return e;
   }
@@ -36,8 +48,13 @@ export class EnemySpawner {
         if (en.killed) continue;
         const dist = Math.abs(en.def.x - playerX);
         if (!en.enemy && shouldSpawn(dist, this.spawnRadius, this.ctx.isLoadedAt(en.def.x))) {
-          const e = new Enemy(this.ctx, ENEMIES[en.def.kind], en.def.x, (en.def.y ?? this.ctx.region.groundY) - 2, en.def.patrol);
-          e.onKilled = () => { en.killed = true; };
+          const e = new Enemy(this.ctx, scaleDef(ENEMIES[en.def.kind], this.ctx.region.enemyScale), en.def.x, (en.def.y ?? this.ctx.region.groundY) - 2, en.def.patrol);
+          e.onKilled = () => {
+            en.killed = true;
+            const key = spawnKey(this.ctx.region.id, en.def.id);
+            const list = session.profile.killedEnemies;
+            if (!list.includes(key)) list.push(key);
+          };
           en.enemy = e;
           this.active.add(e);
         } else if (en.enemy && en.enemy.alive && (hasFallenOut(en.enemy.cy, this.ctx.region.height) || shouldDespawn(Math.abs(en.enemy.cx - playerX), this.despawnRadius, this.ctx.isLoadedAt(en.enemy.cx)))) {

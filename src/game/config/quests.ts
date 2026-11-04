@@ -51,6 +51,47 @@ export const QUESTS: Record<string, QuestDef> = {
     inProgress: ["The Warden waits beyond the gate. Save at a lamp first."],
     turnIn: ["The city is free."],
   },
+  dock_sweep: {
+    id: 'dock_sweep', title: 'Sweep the Docks', giver: 'tess', requires: ['defeat_warden'],
+    summary: 'Thin out the dockside gangs before facing their lord.',
+    objectives: [{ type: 'kill', target: 'archer', count: 4, label: 'Defeat Dock Slingers' }, { type: 'kill', target: 'guard', count: 3, label: 'Break Shield Guards' }],
+    reward: { xp: 320, gold: 60, items: { health_tonic: 2, energy_cell: 1 } },
+    offer: ['The Warden is gone, but Marrow filled the vacuum. His slingers hold every rooftop.', 'Take out four slingers and three shield guards and the pier is half yours.'],
+    inProgress: ['Slingers keep their distance: close in or block their shots. Heavy punches and abilities break shields.'],
+    turnIn: ['Good work. The docks breathe again. Marrow is waiting at the end of the pier.'],
+  },
+  defeat_marrow: {
+    id: 'defeat_marrow', title: 'Sink the Tyrant', giver: 'tess', requires: ['dock_sweep'],
+    summary: 'Defeat Tyrant Marrow on his quay.',
+    objectives: [{ type: 'boss', target: 'marrow', count: 1, label: 'Defeat Tyrant Marrow' }],
+    reward: { xp: 600, gold: 250 },
+    autoComplete: true,
+    offer: ['Marrow throws harpoons low and high. Jump the low ones, stay grounded for the high ones.', 'When he calls down cargo, watch the floor markers and keep moving.'],
+    inProgress: ['The quay lies past the pier. Rest at a lamp first.'],
+    turnIn: ['The tyrant has fallen.'],
+  },
+  foundry_purge: {
+    id: 'foundry_purge', title: 'Purge the Foundry', giver: 'ash', requires: ['defeat_marrow'],
+    summary: 'Cut down the Empress\'s elite guard.',
+    objectives: [{ type: 'kill', target: 'blade', count: 5, label: 'Defeat Night Blades' }, { type: 'kill', target: 'heavy', count: 3, label: 'Defeat Iron Brutes' }],
+    reward: { xp: 650, gold: 120, items: { health_tonic: 3, energy_cell: 2 } },
+    offer: ['Ignis keeps blades and brutes on every catwalk. You will not reach her without bleeding for it.', 'Five Night Blades and three Brutes. Do it and I will tell you how to survive her.'],
+    inProgress: ['Blades dodge when you swing. Bait the dodge, then strike.'],
+    turnIn: ['Impressive. Now the Empress: she vanishes, then strikes from behind. Listen for the warning.'],
+  },
+  defeat_ignis: {
+    id: 'defeat_ignis', title: 'Extinguish the Empress', giver: 'ash', requires: ['foundry_purge'],
+    summary: 'Defeat Empress Ignis in her throne room.',
+    objectives: [{ type: 'boss', target: 'ignis', count: 1, label: 'Defeat Empress Ignis' }],
+    reward: { xp: 1200, gold: 500 },
+    autoComplete: true,
+    offer: ['Flame pillars erupt outward from where you stand. Never stay still.', 'Finish her and the whole city is free.'],
+    inProgress: ['The throne room lies at the east end of the foundry. Rest at a lamp first.'],
+    turnIn: ['The fires are out. You did it.'],
+  },
 };
 
-export const QUEST_ORDER = ['clean_streets', 'rooftop_signal', 'lost_keycard', 'defeat_warden'];
+export const QUEST_ORDER = [
+  'clean_streets', 'rooftop_signal', 'lost_keycard', 'defeat_warden',
+  'dock_sweep', 'defeat_marrow', 'foundry_purge', 'defeat_ignis',
+];

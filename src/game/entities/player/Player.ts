@@ -23,6 +23,7 @@ import { audio } from '@/game/managers/AudioManager';
 import { bus } from '@/game/events/bus';
 import type { WorldContext } from '@/game/systems/world/context';
 import { t } from '@/i18n';
+import { devFlags } from '@/devtools/flags';
 
 export type { PlayerState };
 export { PLAYER_TRANSITIONS };
@@ -555,6 +556,7 @@ export class Player extends Fighter implements AbilityHost {
 
   receiveHit(spec: HitSpec, attacker: Fighter, fromX: number): HitResult {
     if (!this.alive || this.invulnerable()) return IGNORED;
+    if (__DEV_TOOLS__ && devFlags.god) return IGNORED;
     const dir = this.cx >= fromX ? 1 : -1;
     const frontal = (fromX - this.cx) * this.facing >= -6;
     let block: BlockResult = 'none';
