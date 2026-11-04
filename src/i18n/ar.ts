@@ -48,6 +48,8 @@ export const AR: Record<string, string> = {
   'Neon Street': 'شارع النيون', 'Warden Arena': 'ساحة الحارس',
   'Master Ren': 'المعلّم رين', 'Scout Juno': 'الكشّافة جونو', 'Guard Captain Mira': 'قائدة الحرس ميرا',
   'Street Thug': 'بلطجي الشارع', 'Shadow Runner': 'عدّاء الظل', 'Iron Brute': 'الوحش الحديدي', 'Iron Warden Kaizo': 'الحارس الحديدي كايزو',
+  // Background signage (translated at render time, so not caught by the literal-t() scan)
+  'BAR': 'بار', 'RAMEN': 'رامن', 'ARCADE': 'ألعاب', 'HOTEL': 'فندق', 'DOJO': 'دوجو', 'METRO': 'مترو', 'NOODLE': 'نودلز', 'WAREHOUSE': 'مستودع', 'WARDEN GATE': 'بوابة الحارس', 'EXIT': 'خروج',
   'Plaza Lamp': 'مصباح الساحة', 'Market Lamp': 'مصباح السوق', 'Warehouse Lamp': 'مصباح المستودع', 'Industrial Lamp': 'مصباح المصانع', 'Gate Lamp': 'مصباح البوابة', 'Arena Lamp': 'مصباح الساحة',
   'Fire Punch': 'لكمة النار', 'Lightning Dash': 'اندفاع البرق',
   'A flaming uppercut that blasts enemies back and sets them alight.': 'لكمة صاعدة مشتعلة تدفع الأعداء للخلف وتشعل فيهم النار.',

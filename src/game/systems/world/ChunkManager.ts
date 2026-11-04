@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CHUNK_WIDTH, DEPTH } from '@/shared/constants';
 import type { DecorDef, OneWayDef, RegionDef, SolidDef } from '@/game/config/regions';
+import { t as tr } from '@/i18n';
 import { session } from '@/game/managers/session';
 
 interface ChunkData { solids: SolidDef[]; oneWays: OneWayDef[]; decor: DecorDef[] }
@@ -256,7 +257,7 @@ export class ChunkManager {
 
   private neonText(d: DecorDef, color: number, rec: Loaded): void {
     if (!d.text) return;
-    const t = this.scene.add.text(d.x + d.w / 2, d.y + d.h / 2, d.text, {
+    const t = this.scene.add.text(d.x + d.w / 2, d.y + d.h / 2, tr(d.text), {
       fontFamily: 'system-ui, sans-serif', fontSize: `${Math.max(14, Math.floor(d.h * 0.62))}px`, fontStyle: '800',
       color: `#${color.toString(16).padStart(6, '0')}`,
     }).setOrigin(0.5).setDepth(DEPTH.decor + 1);
