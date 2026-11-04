@@ -1,11 +1,12 @@
 import type { ReactElement } from 'react';
+import { t } from '@/i18n';
 export function CreditsScreen(): ReactElement {
   return (
     <div className="credits">
-      <p><strong>Stickman: Open World Fighter</strong></p>
-      <p>Design, code, animation and audio: all original and procedural. No third-party assets.</p>
-      <p className="muted">Built with Phaser 3, React, TypeScript, Vite and Zustand.</p>
-      <p className="muted">Inspired by the feel of side-scrolling stickman action games.</p>
+      <p><strong>{t('STICKMAN')}: {t('OPEN WORLD FIGHTER')}</strong></p>
+      <p>{t('Design, code, animation and audio: all original and procedural. No third-party assets.')}</p>
+      <p className="muted">{t('Built with Phaser 3, React, TypeScript, Vite and Zustand.')}</p>
+      <p className="muted">{t('Inspired by the feel of side-scrolling stickman action games.')}</p>
     </div>
   );
 }

@@ -12,9 +12,25 @@ import { Hud } from '@/app/components/hud/Hud';
 import { LoadingScreen } from '@/app/components/screens/LoadingScreen';
 import { DeathScreen } from '@/app/components/screens/DeathScreen';
 import { ErrorBanner } from '@/app/components/screens/ErrorBanner';
+import { t, useLang } from '@/i18n';
+
+/** Remounted when the language changes so every string re-renders; the Phaser canvas is a sibling and is untouched. */
+function Overlays({ play }: { play: string }): ReactElement {
+  return (
+    <>
+      {(play === 'playing' || play === 'paused' || play === 'dead') && <Hud />}
+      {play === 'loading' && <LoadingScreen />}
+      {play === 'menu' && <MainMenu />}
+      {play === 'paused' && <PauseMenu />}
+      {play === 'dead' && <DeathScreen />}
+      <ErrorBanner />
+    </>
+  );
+}
 
 export function App(): ReactElement {
   const play = useGameStore((s) => s.play);
+  const lang = useLang();
 
   // One-time wiring: event bus -> store, audio unlock, global keys. A single cleanup removes everything.
   useEffect(() => {
@@ -40,8 +56,8 @@ export function App(): ReactElement {
     const onVisibility = (): void => {
       if (document.hidden && useGameStore.getState().play === 'playing') gameApi.pause();
     };
-    const onError = (e: ErrorEvent): void => { console.error(e.error ?? e.message); bus.emit('error', 'An unexpected error occurred. The game will try to keep running.'); };
-    const onRejection = (e: PromiseRejectionEvent): void => { console.error(e.reason); bus.emit('error', 'An operation failed unexpectedly.'); };
+    const onError = (e: ErrorEvent): void => { console.error(e.error ?? e.message); bus.emit('error', t('An unexpected error occurred. The game will try to keep running.')); };
+    const onRejection = (e: PromiseRejectionEvent): void => { console.error(e.reason); bus.emit('error', t('An operation failed unexpectedly.')); };
     window.addEventListener('keydown', onKey);
     window.addEventListener('error', onError);
     window.addEventListener('unhandledrejection', onRejection);
@@ -59,12 +75,7 @@ export function App(): ReactElement {
   return (
     <div className="app">
       <PhaserHost />
-      {(play === 'playing' || play === 'paused' || play === 'dead') && <Hud />}
-      {play === 'loading' && <LoadingScreen />}
-      {play === 'menu' && <MainMenu />}
-      {play === 'paused' && <PauseMenu />}
-      {play === 'dead' && <DeathScreen />}
-      <ErrorBanner />
+      <Overlays key={lang} play={play} />
     </div>
   );
 }

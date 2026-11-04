@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { t } from '@/i18n';
 const ROWS: [string, string][] = [
   ['A / D  ·  ← / →', 'Move'],
   ['Space  ·  W  ·  ↑', 'Jump (hold for height). Down + Jump drops through ledges'],
@@ -22,7 +23,7 @@ export function ControlsScreen(): ReactElement {
       {ROWS.map(([k, v]) => (
         <div className="control-row" key={k}>
           <kbd>{k}</kbd>
-          <span>{v}</span>
+          <span>{t(v)}</span>
         </div>
       ))}
     </div>

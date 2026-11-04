@@ -22,6 +22,7 @@ import { session } from '@/game/managers/session';
 import { audio } from '@/game/managers/AudioManager';
 import { bus } from '@/game/events/bus';
 import type { WorldContext } from '@/game/systems/world/context';
+import { t } from '@/i18n';
 
 export type { PlayerState };
 export { PLAYER_TRANSITIONS };
@@ -125,7 +126,7 @@ export class Player extends Fighter implements AbilityHost {
   }
   restoreEnergy(n: number): void {
     this.energy = Math.min(this.stats.maxEnergy, this.energy + n);
-    this.ctx.fx.text(this.cx, this.cy - 60, `+${Math.round(n)} EN`, '#6aa8ff', 20);
+    this.ctx.fx.text(this.cx, this.cy - 60, t('+{n} EN', { n: Math.round(n) }), '#6aa8ff', 20);
   }
   fullRestore(): void {
     this.health = this.maxHealth;
@@ -312,7 +313,7 @@ export class Player extends Fighter implements AbilityHost {
     const cost = def.staminaCost ?? 0;
     if (this.sm.is('Attacking') && !this.canCancelAttack()) return false;
     if (this.stamina < cost) {
-      this.flashText('No stamina', '#ffd24a');
+      this.flashText(t('No stamina'), '#ffd24a');
       this.combo.buffered = null;
       return false;
     }
@@ -389,8 +390,8 @@ export class Player extends Fighter implements AbilityHost {
     if (res.outcome !== 'hit' && res.outcome !== 'killed') return;
     const n = this.combo.registerHit();
     this.energy = Math.min(this.stats.maxEnergy, this.energy + PLAYER_CFG.energyOnHit);
-    if (n >= 2) this.ctx.fx.text(this.cx, this.cy - 74, `${n} HIT`, n >= 5 ? '#ffd24a' : '#ffffff', 16 + Math.min(n, 8), 600);
-    if (spec.def.id === 'combo_heavy') this.ctx.fx.text(this.cx, this.cy - 100, 'FINISHER!', '#ff8a5c', 26, 800);
+    if (n >= 2) this.ctx.fx.text(this.cx, this.cy - 74, t('{n} HIT', { n }), n >= 5 ? '#ffd24a' : '#ffffff', 16 + Math.min(n, 8), 600);
+    if (spec.def.id === 'combo_heavy') this.ctx.fx.text(this.cx, this.cy - 100, t('FINISHER!'), '#ff8a5c', 26, 800);
     if (spec.extraStun) target.stun(spec.extraStun);
   }
 
@@ -582,7 +583,7 @@ export class Player extends Fighter implements AbilityHost {
       if (this.stamina <= 0 && this.health > 0) {
         // guard break
         this.beginHurt(PLAYER_CFG.block.guardBreakStun, dir, spec.def.knockback.x * 0.6, -120);
-        this.ctx.fx.text(this.cx, this.cy - 80, 'GUARD BREAK', '#ffd24a', 20, 900);
+        this.ctx.fx.text(this.cx, this.cy - 80, t('GUARD BREAK'), '#ffd24a', 20, 900);
       }
     } else {
       this.health = Math.max(0, this.health - dmg);

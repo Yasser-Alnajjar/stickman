@@ -5,6 +5,7 @@ import { questState } from '@/game/systems/quests/quest-engine';
 import { session } from '@/game/managers/session';
 import { bus } from '@/game/events/bus';
 import { audio } from '@/game/managers/AudioManager';
+import { t } from '@/i18n';
 
 interface Node {
   text: string;
@@ -28,7 +29,7 @@ export class DialogueManager {
   open(npcId: string): void {
     const npc = NPCS[npcId];
     if (!npc) return;
-    this.npcName = npc.name;
+    this.npcName = t(npc.name);
     const p = session.profile;
     this.nodes = [];
 
@@ -38,19 +39,20 @@ export class DialogueManager {
 
     if (ready) {
       const q = QUESTS[ready];
-      q.turnIn.forEach((text, i) => this.nodes.push({ text, after: i === q.turnIn.length - 1 ? () => session.completeQuest(ready) : undefined }));
+      q.turnIn.forEach((raw, i) => this.nodes.push({ text: t(raw), after: i === q.turnIn.length - 1 ? () => session.completeQuest(ready) : undefined }));
     } else if (available) {
       const q = QUESTS[available];
-      q.offer.forEach((text, i) => {
+      q.offer.forEach((raw, i) => {
+        const text = t(raw);
         const last = i === q.offer.length - 1;
         this.nodes.push(last
-          ? { text, choices: [{ label: 'Accept quest', run: () => session.acceptQuest(available) }, { label: 'Not now', run: () => undefined }] }
+          ? { text, choices: [{ label: t('Accept quest'), run: () => session.acceptQuest(available) }, { label: t('Not now'), run: () => undefined }] }
           : { text });
       });
     } else if (active) {
-      QUESTS[active].inProgress.forEach((text) => this.nodes.push({ text }));
+      QUESTS[active].inProgress.forEach((text) => this.nodes.push({ text: t(text) }));
     } else {
-      this.nodes.push({ text: npc.idle[this.idleCounter++ % npc.idle.length] });
+      this.nodes.push({ text: t(npc.idle[this.idleCounter++ % npc.idle.length]) });
     }
     this.index = 0;
     this.active = true;

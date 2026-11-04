@@ -23,6 +23,7 @@ import { Npc } from '@/game/entities/npcs/Npc';
 import { CheckpointLamp, Pickup } from '@/game/entities/world/WorldObjects';
 import { computeZoom } from '@/game/utils/viewport';
 import type { BackdropScene } from './BackdropScene';
+import { t } from '@/i18n';
 
 export interface WorldInit {
   region: RegionId;
@@ -154,7 +155,7 @@ export class WorldScene extends Phaser.Scene {
     this.fx.setShake(this.shakeEnabled());
     bus.emit('region', region.name);
     if (region.id === 'city') {
-      bus.emit('banner', { title: region.name, subtitle: 'Find allies. Clear the streets. Open the Warden Gate.' });
+      bus.emit('banner', { title: t(region.name), subtitle: t('Find allies. Clear the streets. Open the Warden Gate.') });
       this.time.delayedCall(3200, () => bus.emit('banner', null));
     }
     bus.emit('state', 'playing');
@@ -240,7 +241,7 @@ export class WorldScene extends Phaser.Scene {
       console.error('[world] update failed', err);
       if (time - this.lastErrorAt > 5000) {
         this.lastErrorAt = time;
-        bus.emit('error', 'A gameplay error occurred. If the game misbehaves, pause and return to the menu.');
+        bus.emit('error', t('A gameplay error occurred. If the game misbehaves, pause and return to the menu.'));
       }
     }
   }
@@ -285,8 +286,8 @@ export class WorldScene extends Phaser.Scene {
     audio.play('gate');
     this.fx.shake(0.01, 500);
     this.fx.debrisBurst(9022, 820, 24);
-    this.fx.text(9022, 640, 'GATE OPENED', '#7dffa0', 24, 1400);
-    session.toast('The Warden Gate has opened', 'good');
+    this.fx.text(9022, 640, t('GATE OPENED'), '#7dffa0', 24, 1400);
+    session.toast(t('The Warden Gate has opened'), 'good');
   }
 
   private rescuePlayer(): void {
@@ -311,7 +312,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.dialogue.active) {
       if (p.interactRequested) this.dialogue.advance();
     } else if (near && p.alive) {
-      prompt = `Press E to talk to ${near.def.name}`;
+      prompt = t('Press E to talk to {name}', { name: t(near.def.name) });
       if (p.interactRequested) {
         this.dialogue.open(near.def.id);
         p.locked = true;
@@ -334,7 +335,7 @@ export class WorldScene extends Phaser.Scene {
       if (!isCurrent) {
         session.profile.checkpoint = { region: this.region.id, id: l.def.id, x: l.def.x, y: l.y };
         this.lamps.forEach((o) => (o.active = o === l));
-        session.toast(`Checkpoint: ${l.def.name}`, 'good');
+        session.toast(t('Checkpoint: {name}', { name: t(l.def.name) }), 'good');
         audio.play('checkpoint');
         this.fx.ring(l.def.x, l.y - 160, 0x7dffa0, 10, 120, 600, 5);
         p.fullRestore();
@@ -343,7 +344,7 @@ export class WorldScene extends Phaser.Scene {
       } else if (this.clock.now > this.lampRest && (p.health < p.maxHealth || p.energy < p.stats.maxEnergy)) {
         p.fullRestore();
         this.fx.ring(l.def.x, l.y - 160, 0x7dffa0, 10, 90, 500, 4);
-        session.toast('Rested at lamp', 'info');
+        session.toast(t('Rested at lamp'), 'info');
         audio.play('checkpoint');
         this.lampRest = this.clock.now + 6000;
       }
@@ -357,7 +358,7 @@ export class WorldScene extends Phaser.Scene {
     session.giveItem(pk.def.item, pk.def.qty);
     audio.play('pickup');
     this.fx.hitSparks(pk.x, pk.y - 20, 0, 10, true);
-    this.fx.text(pk.x, pk.y - 40, ITEMS[pk.def.item].name, '#ffd24a', 18, 900);
+    this.fx.text(pk.x, pk.y - 40, t(ITEMS[pk.def.item].name), '#ffd24a', 18, 900);
     if (!pk.def.id.startsWith('drop_')) session.profile.collected.push(pk.def.id);
     this.pickups = this.pickups.filter((x) => x !== pk);
     pk.destroy();
@@ -379,7 +380,7 @@ export class WorldScene extends Phaser.Scene {
   private onZoneEnter(z: ZoneDef): void {
     if (z.kind === 'reach') {
       session.questEvent({ type: 'reach', target: z.id });
-      session.toast('Beacon reached', 'info');
+      session.toast(t('Beacon reached'), 'info');
       audio.play('checkpoint');
       this.fx.ring(z.x + z.w / 2, z.y + z.h / 2, 0xff4d5e, 10, 160, 800, 6);
     } else if (z.kind === 'exit' && z.to) {
@@ -416,7 +417,7 @@ export class WorldScene extends Phaser.Scene {
     audio.play('gate');
     audio.playMusic('boss');
     b.engage();
-    session.toast('The gate seals behind you', 'warn');
+    session.toast(t('The gate seals behind you'), 'warn');
   }
 
   private onBossDefeated(): void {
@@ -425,7 +426,7 @@ export class WorldScene extends Phaser.Scene {
       this.barrier?.destroy();
       this.barrierG?.destroy();
       this.barrier = null; this.barrierG = null;
-      session.toast('The seal breaks. The exit is open.', 'good');
+      session.toast(t('The seal breaks. The exit is open.'), 'good');
       audio.play('gate');
     });
   }

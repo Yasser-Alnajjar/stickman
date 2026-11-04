@@ -53,6 +53,9 @@ Append `?debug` to the URL to expose `window.__stickman` (used by the e2e script
 - **Progression**: XP, levels 1-10, skill points, ability ranks, 5 attributes with real stat effects, inventory, gold.
 - **Saves**: IndexedDB (`manual` + `auto` slots), schema validation/sanitising, versioned migrations, corruption fallback,
   auto-save on lamps/level-ups/quests/region changes and every 60 s.
+- **Languages**: English and Arabic (full RTL layout, mirrored HUD/menus, Arabic text in the world). Pick one in Settings; it is
+  remembered and defaults to the browser language. Add a language by creating `src/i18n/<lang>.ts` (English text is the key,
+  missing entries fall back to English; `npm test` fails if a string lacks an Arabic entry) and registering it in `src/i18n/index.ts`.
 - **UI**: main menu, HUD (bars, XP, ability cooldowns, quest tracker, boss bar, combo counter), pause menu with
   inventory/skills/quests/settings/controls, dialogue, death screen, fullscreen, audio and screen-shake settings.
 
@@ -91,7 +94,7 @@ Key decisions / trade-offs:
 
 ## Testing performed
 
-- `npm test`: 35 unit tests (progression, quests, damage, combos, save schema/migrations, state tables, level reachability).
+- `npm test`: 38 unit tests (translations, progression, quests, damage, combos, save schema/migrations, state tables, level reachability).
 - `npm run e2e` and ad-hoc Playwright scripts in headless Chromium (WebGL via SwiftShader): movement, jump heights, combo chain
   and single-hit guarantee, abilities/energy/cooldowns, block, NPC dialogue + quests, hidden room, gate opening, checkpoints,
   death/respawn, boss phases/summons/death/rewards, pause/save/reload/continue, resize at five viewport sizes.

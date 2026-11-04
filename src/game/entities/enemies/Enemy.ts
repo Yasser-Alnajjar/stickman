@@ -13,6 +13,7 @@ import { makePose, type Pose } from '@/game/animations/pose';
 import { poseAttack, poseDead, poseDodge, poseHurt, poseIdle, poseMove, posePointing, poseStun } from '@/game/animations/clips';
 import { audio } from '@/game/managers/AudioManager';
 import { session } from '@/game/managers/session';
+import { t } from '@/i18n';
 
 export type { EnemyState };
 export { ENEMY_TRANSITIONS };
@@ -340,7 +341,7 @@ export class Enemy extends Fighter {
     this.stunMs = ms;
     this.vulnerable = true;
     this.arcade.setVelocityX(0);
-    this.ctx.fx.text(this.cx, this.cy - this.h * 0.75, 'STUNNED', '#ffd24a', 16, 700);
+    this.ctx.fx.text(this.cx, this.cy - this.h * 0.75, t('STUNNED'), '#ffd24a', 16, 700);
   }
 
   protected die(): void {

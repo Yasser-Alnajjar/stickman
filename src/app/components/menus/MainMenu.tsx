@@ -5,6 +5,7 @@ import { gameApi } from '@/game/managers/game-api';
 import { SettingsPanel } from '@/app/components/settings/SettingsPanel';
 import { ControlsScreen } from '@/app/components/screens/ControlsScreen';
 import { CreditsScreen } from '@/app/components/screens/CreditsScreen';
+import { t } from '@/i18n';
 
 export function MainMenu(): ReactElement {
   const panel = useGameStore((s) => s.panel);
@@ -15,7 +16,7 @@ export function MainMenu(): ReactElement {
   useEffect(() => { first.current?.focus(); }, [panel]);
 
   if (panel !== 'root') {
-    const titles = { settings: 'Settings', controls: 'Controls', credits: 'Credits' } as Record<string, string>;
+    const titles = { settings: t('Settings'), controls: t('Controls'), credits: t('Credits') } as Record<string, string>;
     return (
       <div className="screen center menu">
         <div className="card wide">
@@ -23,7 +24,7 @@ export function MainMenu(): ReactElement {
           {panel === 'settings' && <SettingsPanel />}
           {panel === 'controls' && <ControlsScreen />}
           {panel === 'credits' && <CreditsScreen />}
-          <button ref={first} className="btn" onClick={() => setPanel('root')}>Back</button>
+          <button ref={first} className="btn" onClick={() => setPanel('root')}>{t('Back')}</button>
         </div>
       </div>
     );
@@ -32,20 +33,20 @@ export function MainMenu(): ReactElement {
   return (
     <div className="screen menu">
       <div className="menu-column">
-        <h1 className="logo">STICKMAN</h1>
-        <p className="subtitle">OPEN WORLD FIGHTER</p>
-        <button ref={first} className="btn primary" onClick={() => gameApi.newGame()}>New Game</button>
+        <h1 className="logo">{t('STICKMAN')}</h1>
+        <p className="subtitle">{t('OPEN WORLD FIGHTER')}</p>
+        <button ref={first} className="btn primary" onClick={() => gameApi.newGame()}>{t('New Game')}</button>
         <button
           className="btn"
           disabled={!hasSave || busy}
-          title={hasSave ? 'Load your most recent save' : 'No save found'}
+          title={hasSave ? t('Load your most recent save') : t('No save found')}
           onClick={async () => { setBusy(true); await gameApi.continueGame(); setBusy(false); }}
         >
-          Continue
+          {t('Continue')}
         </button>
-        <button className="btn" onClick={() => setPanel('settings')}>Settings</button>
-        <button className="btn" onClick={() => setPanel('controls')}>Controls</button>
-        <button className="btn" onClick={() => setPanel('credits')}>Credits</button>
+        <button className="btn" onClick={() => setPanel('settings')}>{t('Settings')}</button>
+        <button className="btn" onClick={() => setPanel('controls')}>{t('Controls')}</button>
+        <button className="btn" onClick={() => setPanel('credits')}>{t('Credits')}</button>
       </div>
     </div>
   );

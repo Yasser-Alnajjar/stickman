@@ -9,6 +9,7 @@ import { ITEMS } from '@/game/config/items';
 import { ABILITIES } from '@/game/config/abilities';
 import { saveManager } from '@/persistence/save-manager';
 import { audio } from '@/game/managers/AudioManager';
+import { t } from '@/i18n';
 
 export interface PlayerHooks {
   restoreHealth(amount: number): void;
@@ -53,9 +54,9 @@ class GameSession {
 
   gainXp(amount: number, label?: string): void {
     const r = addXp(this.profile, amount);
-    if (label) this.toast(`+${amount} XP  ${label}`, 'info');
+    if (label) this.toast(t('+{n} XP  {label}', { n: amount, label: t(label) }), 'info');
     if (r.levelsGained > 0) {
-      this.toast(`Level ${r.newLevel}!  +${r.levelsGained} skill point${r.levelsGained > 1 ? 's' : ''}`, 'level');
+      this.toast(t(r.levelsGained > 1 ? 'Level {n}!  +{p} skill points' : 'Level {n}!  +{p} skill point', { n: r.newLevel, p: r.levelsGained }), 'level');
       audio.play('levelUp');
       this.hooks?.statsChanged(this.stats, true);
       void this.autoSave(true);
@@ -68,7 +69,7 @@ class GameSession {
   upgradeAbility(id: AbilityId): boolean {
     const was = this.profile.abilities[id];
     if (!upgradeAbility(this.profile, id)) return false;
-    this.toast(was === 0 ? `Unlocked ${ABILITIES[id].name}` : `${ABILITIES[id].name} upgraded to rank ${was + 1}`, 'good');
+    this.toast(was === 0 ? t('Unlocked {name}', { name: t(ABILITIES[id].name) }) : t('{name} upgraded to rank {n}', { name: t(ABILITIES[id].name), n: was + 1 }), 'good');
     audio.play('pickup');
     this.emit();
     return true;
@@ -86,7 +87,7 @@ class GameSession {
 
   giveItem(id: ItemId, qty = 1): void {
     addItem(this.profile, id, qty);
-    this.toast(`${ITEMS[id].icon} ${ITEMS[id].name}${qty > 1 ? ` x${qty}` : ''}`, 'good');
+    this.toast(`${ITEMS[id].icon} ${t(ITEMS[id].name)}${qty > 1 ? ` x${qty}` : ''}`, 'good');
     this.questEvent({ type: 'collect', target: id, count: qty });
     this.emit();
   }
@@ -95,7 +96,7 @@ class GameSession {
     if (!ITEMS[id].usable || itemCount(this.profile, id) < 1 || !this.hooks) return false;
     const kind = id === 'health_tonic' ? 'health' : 'energy';
     if (this.hooks.isFull(kind)) {
-      this.toast(kind === 'health' ? 'Health is already full' : 'Energy is already full', 'warn');
+      this.toast(t(kind === 'health' ? 'Health is already full' : 'Energy is already full'), 'warn');
       return false;
     }
     removeItem(this.profile, id, 1);
@@ -114,7 +115,7 @@ class GameSession {
       const q = QUESTS[id];
       if (q.autoComplete) this.completeQuest(id);
       else {
-        this.toast(`Quest ready to turn in: ${q.title}`, 'good');
+        this.toast(t('Quest ready to turn in: {name}', { name: t(q.title) }), 'good');
         audio.play('quest');
       }
     }
@@ -123,21 +124,21 @@ class GameSession {
 
   acceptQuest(id: string): void {
     if (!acceptQuest(this.profile, id)) return;
-    this.toast(`Quest accepted: ${QUESTS[id].title}`, 'good');
+    this.toast(t('Quest accepted: {name}', { name: t(QUESTS[id].title) }), 'good');
     audio.play('quest');
     const entry = this.profile.quests[id];
     if (entry.status === 'ready' && QUESTS[id].autoComplete) this.completeQuest(id);
-    else if (entry.status === 'ready') this.toast(`Quest ready to turn in: ${QUESTS[id].title}`, 'good');
+    else if (entry.status === 'ready') this.toast(t('Quest ready to turn in: {name}', { name: t(QUESTS[id].title) }), 'good');
     this.emit();
   }
 
   completeQuest(id: string): void {
     const done = completeQuest(this.profile, id);
     if (!done) return;
-    this.toast(`Quest complete: ${QUESTS[id].title}  (+${done.xp} XP)`, 'good');
+    this.toast(t('Quest complete: {name}  (+{n} XP)', { name: t(QUESTS[id].title), n: done.xp }), 'good');
     audio.play('quest');
     if (done.levelsGained > 0) {
-      this.toast(`Level ${this.profile.level}!`, 'level');
+      this.toast(t('Level {n}!', { n: this.profile.level }), 'level');
       audio.play('levelUp');
       this.hooks?.statsChanged(this.stats, true);
     }
@@ -160,7 +161,7 @@ class GameSession {
       return true;
     } catch (err) {
       console.warn('[save] failed', err);
-      bus.emit('error', 'Could not save the game (storage unavailable).');
+      bus.emit('error', t('Could not save the game (storage unavailable).'));
       return false;
     }
   }

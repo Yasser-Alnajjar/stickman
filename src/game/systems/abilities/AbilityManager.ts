@@ -2,6 +2,7 @@ import type { AbilityId } from '@/shared/types';
 import { ABILITIES, ABILITY_ORDER } from '@/game/config/abilities';
 import { session } from '@/game/managers/session';
 import { audio } from '@/game/managers/AudioManager';
+import { t } from '@/i18n';
 
 export interface AbilityHost {
   energy: number;
@@ -42,7 +43,7 @@ export class AbilityManager {
     const def = ABILITIES[id];
     const rank = this.rank(id);
     if (rank <= 0) {
-      this.host.flashText('Locked', '#9aa3c7');
+      this.host.flashText(t('Locked'), '#9aa3c7');
       audio.play('uiBack');
       return false;
     }
@@ -53,7 +54,7 @@ export class AbilityManager {
     }
     const cost = def.energyCost[rank - 1];
     if (this.host.energy < cost) {
-      this.host.flashText('Not enough energy', '#6aa8ff');
+      this.host.flashText(t('Not enough energy'), '#6aa8ff');
       audio.play('uiBack');
       return false;
     }

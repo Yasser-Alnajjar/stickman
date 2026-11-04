@@ -3,8 +3,10 @@ import { useEffect } from 'react';
 import { useGameStore } from '@/store/game-store';
 import { gameApi } from '@/game/managers/game-api';
 import { ABILITIES, ABILITY_ORDER } from '@/game/config/abilities';
+import { NPCS } from '@/game/config/npcs';
 import { MAX_LEVEL, xpToNext } from '@/game/config/progression';
 import { trackedQuests } from '@/game/systems/quests/quest-engine';
+import { t } from '@/i18n';
 
 function Bar({ value, max, cls, label }: { value: number; max: number; cls: string; label: string }): ReactElement {
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
@@ -43,7 +45,7 @@ function Dialogue(): ReactElement | null {
           {d.choices.map((c, i) => <button key={c} className="btn small-btn" onClick={() => gameApi.dialogueChoose(i)}>{c}</button>)}
         </div>
       ) : (
-        <button className="btn small-btn" onClick={() => gameApi.dialogueAdvance()}>{d.hasNext ? 'Next ▸' : 'Close'} <kbd>E</kbd></button>
+        <button className="btn small-btn" onClick={() => gameApi.dialogueAdvance()}>{t(d.hasNext ? 'Next ▸' : 'Close')} <kbd>E</kbd></button>
       )}
     </div>
   );
@@ -70,19 +72,19 @@ export function Hud(): ReactElement {
           <Bar value={hud.stamina} max={hud.maxStamina} cls="st" label="Stamina" />
           <Bar value={hud.energy} max={hud.maxEnergy} cls="en" label="Energy" />
           <div className="xpbar" role="progressbar" aria-label="Experience" aria-valuenow={profile.xp}><div style={{ width: `${xpPct}%` }} /></div>
-          {profile.skillPoints > 0 && <div className="sp-note">{profile.skillPoints} skill point{profile.skillPoints > 1 ? 's' : ''} (Tab)</div>}
+          {profile.skillPoints > 0 && <div className="sp-note">{t(profile.skillPoints > 1 ? '{n} skill points (Tab)' : '{n} skill point (Tab)', { n: profile.skillPoints })}</div>}
         </div>
       </div>
 
       <div className="hud-tr">
         {tracked.length > 0 && (
           <div className="tracker">
-            <h5>Quests</h5>
+            <h5>{t('Quests')}</h5>
             {tracked.map(({ def, progress }) => (
               <div key={def.id} className="tracker-q">
-                <strong>{def.title}</strong>
-                {progress.status === 'ready' ? <div className="ready">Return to {def.giver === 'ren' ? 'Master Ren' : def.giver === 'mira' ? 'Captain Mira' : 'Scout Juno'}</div> : def.objectives.map((o, i) => (
-                  <div key={i} className={progress.progress[i] >= o.count ? 'done' : ''}>{o.label} {Math.min(progress.progress[i], o.count)}/{o.count}</div>
+                <strong>{t(def.title)}</strong>
+                {progress.status === 'ready' ? <div className="ready">{t('Return to {name}', { name: t(NPCS[def.giver].name) })}</div> : def.objectives.map((o, i) => (
+                  <div key={i} className={progress.progress[i] >= o.count ? 'done' : ''}>{t(o.label)} {Math.min(progress.progress[i], o.count)}/{o.count}</div>
                 ))}
               </div>
             ))}
@@ -92,7 +94,7 @@ export function Hud(): ReactElement {
 
       {boss && (
         <div className="boss-bar" role="progressbar" aria-label="Boss health">
-          <div className="boss-name">{boss.name} <span className="muted small">Phase {boss.phase}</span></div>
+          <div className="boss-name">{boss.name} <span className="muted small">{t('Phase')} {boss.phase}</span></div>
           <div className="boss-track"><div className="boss-fill" style={{ width: `${(boss.health / boss.maxHealth) * 100}%` }} /></div>
         </div>
       )}
@@ -107,7 +109,7 @@ export function Hud(): ReactElement {
             const cost = def.energyCost[Math.max(0, rank - 1)];
             const noEnergy = rank > 0 && hud.energy < cost;
             return (
-              <div key={id} className={`slot ${rank === 0 ? 'locked' : ''} ${noEnergy ? 'low' : ''}`} style={{ ['--c' as string]: def.color }} title={def.name}>
+              <div key={id} className={`slot ${rank === 0 ? 'locked' : ''} ${noEnergy ? 'low' : ''}`} style={{ ['--c' as string]: def.color }} title={t(def.name)}>
                 <span className="slot-icon">{def.icon}</span>
                 <span className="slot-key">{def.keyLabel}</span>
                 {rank > 0 && <span className="slot-cost">{cost}</span>}
@@ -120,7 +122,7 @@ export function Hud(): ReactElement {
         </div>
       </div>
 
-      {combo >= 2 && <div className="combo" key={combo}>{combo}<small> HIT COMBO</small></div>}
+      {combo >= 2 && <div className="combo" key={combo}>{combo}<small> {t('HIT COMBO')}</small></div>}
       {prompt && !dialogue && <div className="prompt">{prompt}</div>}
       {banner && <div className="banner"><h2>{banner.title}</h2>{banner.subtitle && <p>{banner.subtitle}</p>}</div>}
       <Dialogue />

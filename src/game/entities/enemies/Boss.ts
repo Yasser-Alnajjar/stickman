@@ -11,6 +11,7 @@ import { poseAttack, poseDead, poseFall, poseIdle, poseJump, poseLand, poseMove,
 import { audio } from '@/game/managers/AudioManager';
 import { session } from '@/game/managers/session';
 import { bus } from '@/game/events/bus';
+import { t } from '@/i18n';
 
 const BOSS_DEF: EnemyDef = {
   kind: 'boss', name: WARDEN.name, maxHealth: WARDEN.maxHealth, attack: WARDEN.attack, defense: WARDEN.defense,
@@ -68,7 +69,7 @@ export class Boss extends Enemy {
     this.setMode('intro');
     audio.play('roar');
     this.ctx.fx.shake(0.01, 600);
-    bus.emit('banner', { title: WARDEN.name, subtitle: 'Guardian of the City Gate' });
+    bus.emit('banner', { title: t(WARDEN.name), subtitle: t('Guardian of the City Gate') });
     this.ctx.scene.time.delayedCall(2600, () => bus.emit('banner', null));
   }
 
@@ -153,7 +154,7 @@ export class Boss extends Enemy {
           a.setVelocityX(0);
           this.sm.transition('Recover');
           this.setMode('exhausted');
-          this.ctx.fx.text(this.cx, this.cy - 130, 'EXHAUSTED!', '#ffd24a', 24, 1200);
+          this.ctx.fx.text(this.cx, this.cy - 130, t('EXHAUSTED!'), '#ffd24a', 24, 1200);
         }
         break;
       }
@@ -171,7 +172,7 @@ export class Boss extends Enemy {
     // HUD
     if (this.ctx.clock.now - this.lastEmit > 80) {
       this.lastEmit = this.ctx.clock.now;
-      if (this.mode !== 'dormant') bus.emit('boss:update', { name: WARDEN.name, health: this.health, maxHealth: this.maxHealth, phase: this.phase });
+      if (this.mode !== 'dormant') bus.emit('boss:update', { name: t(WARDEN.name), health: this.health, maxHealth: this.maxHealth, phase: this.phase });
     }
   }
 
@@ -256,7 +257,7 @@ export class Boss extends Enemy {
     this.spawnWave(this.cx, -1);
     this.spawnWave(this.cx, 1);
     this.setMode('exhausted');
-    this.ctx.fx.text(this.cx, this.cy - 130, 'EXHAUSTED!', '#ffd24a', 24, 1200);
+    this.ctx.fx.text(this.cx, this.cy - 130, t('EXHAUSTED!'), '#ffd24a', 24, 1200);
   }
 
   private slamEffects(big: boolean): void {
@@ -274,7 +275,7 @@ export class Boss extends Enemy {
     const right = this.ctx.region.width - 300;
     this.ctx.spawnEnemy('basic', left, this.feetY, 120);
     this.ctx.spawnEnemy('basic', right, this.feetY, 120);
-    this.ctx.fx.text(this.cx, this.cy - 150, 'REINFORCEMENTS!', '#ff7a5c', 24, 1400);
+    this.ctx.fx.text(this.cx, this.cy - 150, t('REINFORCEMENTS!'), '#ff7a5c', 24, 1400);
   }
 
   /* ------------------------------------------------------------------ attack hooks */
@@ -299,7 +300,7 @@ export class Boss extends Enemy {
       if (def.id === 'boss_slam') {
         this.sm.transition('Recover');
         this.setMode('exhausted');
-        this.ctx.fx.text(this.cx, this.cy - 130, 'EXHAUSTED!', '#ffd24a', 24, 1200);
+        this.ctx.fx.text(this.cx, this.cy - 130, t('EXHAUSTED!'), '#ffd24a', 24, 1200);
       } else {
         this.sm.transition('Recover');
         this.setMode('pause');
@@ -355,7 +356,7 @@ export class Boss extends Enemy {
       audio.play('roar');
       this.ctx.fx.shake(0.014, 700);
       this.ctx.fx.ring(this.cx, this.cy, 0xff3b3b, 20, 360, 700, 8);
-      this.ctx.fx.text(this.cx, this.cy - 150, next === 2 ? 'ENRAGED!' : 'FURY!', '#ff4040', 30, 1400);
+      this.ctx.fx.text(this.cx, this.cy - 150, t(next === 2 ? 'ENRAGED!' : 'FURY!'), '#ff4040', 30, 1400);
       this.lastPhaseNote = this.ctx.clock.now;
     }
   }
@@ -369,7 +370,7 @@ export class Boss extends Enemy {
     this.ctx.fx.shake(0.02, 900);
     this.ctx.fx.ring(this.cx, this.cy, 0xffd24a, 20, 500, 900, 10);
     bus.emit('boss:update', null);
-    bus.emit('banner', { title: 'VICTORY', subtitle: `${WARDEN.name} defeated` });
+    bus.emit('banner', { title: t('VICTORY'), subtitle: t('{name} defeated', { name: t(WARDEN.name) }) });
     this.ctx.scene.time.delayedCall(3200, () => bus.emit('banner', null));
     this.onDefeated?.();
   }
@@ -377,7 +378,7 @@ export class Boss extends Enemy {
   protected override rewards(): void {
     session.gainXp(WARDEN.xp, WARDEN.name);
     session.profile.inventory.gold += WARDEN.gold;
-    session.toast(`+${WARDEN.gold} gold`, 'good');
+    session.toast(t('+{n} gold', { n: WARDEN.gold }), 'good');
     session.giveItem('warden_core');
     session.profile.stats.kills += 1;
     if (!session.profile.defeatedBosses.includes(WARDEN.id)) session.profile.defeatedBosses.push(WARDEN.id);

@@ -4,6 +4,7 @@ import { session } from '@/game/managers/session';
 import { runtime } from '@/game/managers/runtime';
 import { audio, type AudioSettings } from '@/game/managers/AudioManager';
 import { saveManager } from '@/persistence/save-manager';
+import { t } from '@/i18n';
 
 /** The only surface the React UI uses to command the game. */
 export const gameApi = {
@@ -28,7 +29,7 @@ export const gameApi = {
     audio.unlock();
     const latest = await saveManager.latest();
     if (!latest) {
-      bus.emit('error', 'No valid save was found. Start a new game.');
+      bus.emit('error', t('No valid save was found. Start a new game.'));
       return false;
     }
     audio.play('ui');
@@ -67,7 +68,7 @@ export const gameApi = {
 
   async saveGame(): Promise<boolean> {
     const ok = await session.save(false);
-    if (ok) session.toast('Game saved', 'good');
+    if (ok) session.toast(t('Game saved'), 'good');
     audio.play(ok ? 'pickup' : 'uiBack');
     return ok;
   },

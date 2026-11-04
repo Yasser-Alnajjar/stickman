@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { useEffect } from 'react';
 import { useGameStore } from '@/store/game-store';
+import { t } from '@/i18n';
 
 export function ErrorBanner(): ReactElement | null {
   const error = useGameStore((s) => s.error);
@@ -12,8 +13,8 @@ export function ErrorBanner(): ReactElement | null {
   if (!error) return null;
   return (
     <div className="error-banner" role="alert">
-      {error}
-      <button className="link" onClick={() => useGameStore.setState({ error: null })}>Dismiss</button>
+      {t(error)}
+      <button className="link" onClick={() => useGameStore.setState({ error: null })}>{t('Dismiss')}</button>
     </div>
   );
 }

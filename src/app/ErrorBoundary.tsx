@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { t } from '@/i18n';
 
 interface State { error: Error | null }
 
@@ -18,10 +19,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     if (!this.state.error) return this.props.children;
     return (
       <div className="screen center" role="alert">
-        <h2>Something went wrong</h2>
+        <h2>{t('Something went wrong')}</h2>
         <p className="muted">{this.state.error.message}</p>
-        <button className="btn primary" onClick={() => window.location.reload()}>Reload game</button>
-        <p className="muted small">Your last auto-save is kept.</p>
+        <button className="btn primary" onClick={() => window.location.reload()}>{t('Reload game')}</button>
+        <p className="muted small">{t('Your last auto-save is kept.')}</p>
       </div>
     );
   }

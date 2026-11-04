@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, DEPTH } from '@/shared/constants';
 import type { CheckpointDef, PickupDef } from '@/game/config/regions';
 import { ITEMS } from '@/game/config/items';
+import { t } from '@/i18n';
 
 /** A glowing lamp that acts as a checkpoint. */
 export class CheckpointLamp {
@@ -12,7 +13,7 @@ export class CheckpointLamp {
 
   constructor(scene: Phaser.Scene, readonly def: CheckpointDef, readonly y: number) {
     this.g = scene.add.graphics().setDepth(DEPTH.decor + 2);
-    this.label = scene.add.text(def.x, y - 190, def.name, { fontFamily: 'system-ui, sans-serif', fontSize: '14px', fontStyle: '700', color: '#cfd6ff', stroke: '#000', strokeThickness: 3 })
+    this.label = scene.add.text(def.x, y - 190, t(def.name), { fontFamily: 'system-ui, sans-serif', fontSize: '14px', fontStyle: '700', color: '#cfd6ff', stroke: '#000', strokeThickness: 3 })
       .setOrigin(0.5).setDepth(DEPTH.decor + 2).setAlpha(0.8);
   }
 

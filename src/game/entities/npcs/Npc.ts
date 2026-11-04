@@ -7,6 +7,7 @@ import { poseIdle, posePointing } from '@/game/animations/clips';
 import { QUESTS } from '@/game/config/quests';
 import { session } from '@/game/managers/session';
 import { questState } from '@/game/systems/quests/quest-engine';
+import { t } from '@/i18n';
 
 /** Non-combat character: idles, faces the player, shows a quest marker. */
 export class Npc {

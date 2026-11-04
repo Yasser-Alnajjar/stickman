@@ -5,6 +5,7 @@ import type { AttackRunner } from './AttackRunner';
 import { audio } from '@/game/managers/AudioManager';
 import type { Fx } from '@/game/managers/Fx';
 import type { GameClock } from './GameClock';
+import { t } from '@/i18n';
 
 export interface HitResult { outcome: HitOutcome; damage: number; dir: number }
 
@@ -55,7 +56,7 @@ export class CombatSystem {
 
     if (res.outcome === 'blocked') {
       fx.hitSparks(px, py, res.dir, 5);
-      fx.text(target.cx, target.cy - target.h * 0.6, 'BLOCK', '#8fd3ff', 18, 500);
+      fx.text(target.cx, target.cy - target.h * 0.6, t('BLOCK'), '#8fd3ff', 18, 500);
       audio.play('block');
       clock.hitStop(45);
       return 'blocked';
@@ -63,7 +64,7 @@ export class CombatSystem {
     if (res.outcome === 'perfect') {
       fx.ring(px, py, 0x8fd3ff, 10, 90, 300, 5);
       fx.hitSparks(px, py, res.dir, 10, true);
-      fx.text(target.cx, target.cy - target.h * 0.6, 'PERFECT BLOCK', '#fff1b0', 20, 800);
+      fx.text(target.cx, target.cy - target.h * 0.6, t('PERFECT BLOCK'), '#fff1b0', 20, 800);
       audio.play('perfect');
       clock.hitStop(130);
       fx.shake(0.004, 100);
