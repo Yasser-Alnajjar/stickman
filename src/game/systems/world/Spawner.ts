@@ -2,6 +2,7 @@ import type { SpawnDef } from '@/game/config/regions';
 import { ENEMIES } from '@/game/config/enemies';
 import { Enemy } from '@/game/entities/enemies/Enemy';
 import type { WorldContext } from './context';
+import { hasFallenOut, shouldDespawn, shouldSpawn } from './spawn-rules';
 
 interface Entry { def: SpawnDef; enemy: Enemy | null; killed: boolean }
 
@@ -34,12 +35,12 @@ export class EnemySpawner {
       for (const en of this.entries) {
         if (en.killed) continue;
         const dist = Math.abs(en.def.x - playerX);
-        if (!en.enemy && dist < this.spawnRadius) {
+        if (!en.enemy && shouldSpawn(dist, this.spawnRadius, this.ctx.isLoadedAt(en.def.x))) {
           const e = new Enemy(this.ctx, ENEMIES[en.def.kind], en.def.x, (en.def.y ?? this.ctx.region.groundY) - 2, en.def.patrol);
           e.onKilled = () => { en.killed = true; };
           en.enemy = e;
           this.active.add(e);
-        } else if (en.enemy && en.enemy.alive && Math.abs(en.enemy.cx - playerX) > this.despawnRadius) {
+        } else if (en.enemy && en.enemy.alive && (hasFallenOut(en.enemy.cy, this.ctx.region.height) || shouldDespawn(Math.abs(en.enemy.cx - playerX), this.despawnRadius, this.ctx.isLoadedAt(en.enemy.cx)))) {
           this.active.delete(en.enemy);
           en.enemy.destroy();
           en.enemy = null;

@@ -35,7 +35,6 @@ export function SettingsPanel(): ReactElement {
         <span />
       </label>
       <Slider label={t('Master volume')} value={a.master} onChange={(v) => setAudio({ master: v })} />
-      <Slider label={t('Music volume')} value={a.music} onChange={(v) => setAudio({ music: v })} />
       <Slider label={t('Effects volume')} value={a.sfx} onChange={(v) => setAudio({ sfx: v })} />
       <label className="setting check">
         <input type="checkbox" checked={a.muted} onChange={(e) => setAudio({ muted: e.target.checked })} />

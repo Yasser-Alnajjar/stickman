@@ -98,7 +98,13 @@ class AudioManager {
 
   /* ---------------------------- music ---------------------------- */
 
-  playMusic(track: MusicTrack): void {
+  /** Background music is disabled by request: the scheduler never starts. Sound effects are unaffected. */
+  playMusic(_track: MusicTrack): void {
+    this.track = 'none';
+    this.stopScheduler();
+  }
+
+  private playMusicUnused(track: MusicTrack): void {
     if (track === this.track) return;
     this.track = track;
     this.step = 0;

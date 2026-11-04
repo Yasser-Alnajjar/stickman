@@ -44,6 +44,9 @@ export class ChunkManager {
 
   get loadedCount(): number { return this.loaded.size; }
 
+  /** Whether physics bodies exist for the chunk containing world x. */
+  isLoadedAt(x: number): boolean { return this.loaded.has(Math.floor(x / CHUNK_WIDTH)); }
+
   /** Loads/unloads chunks around the camera view. Cheap enough to call a few times per second. */
   update(left: number, right: number): void {
     const first = Math.floor((left - this.margin) / CHUNK_WIDTH);

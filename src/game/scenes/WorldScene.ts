@@ -102,6 +102,7 @@ export class WorldScene extends Phaser.Scene {
     this.ctx = {
       scene: this, fx: this.fx, combat: this.combat, clock: this.clock, actors, region,
       getPlayer: () => this.player,
+      isLoadedAt: (x) => this.chunks.isLoadedAt(x),
       spawnEnemy: (kind, x, y, patrol = 120) => this.spawner.create(kind, x, y, patrol),
       dropItem: (item, x, y) => this.dropItem(item, x, y),
     };

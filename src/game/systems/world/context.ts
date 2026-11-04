@@ -16,6 +16,8 @@ export interface WorldContext {
   actors: Phaser.Physics.Arcade.Group;
   region: RegionDef;
   getPlayer(): Player;
+  /** True when the ground collision for world x is currently streamed in (enemies fall through the world otherwise). */
+  isLoadedAt(x: number): boolean;
   spawnEnemy(kind: Exclude<EnemyKind, 'boss'>, x: number, y: number, patrol?: number): Enemy;
   dropItem(item: ItemId, x: number, y: number): void;
 }
