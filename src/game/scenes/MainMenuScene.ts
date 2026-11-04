@@ -30,7 +30,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.applyZoom();
     this.scale.on('resize', this.applyZoom, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.applyZoom, this));
-    (this.scene.get('Backdrop') as BackdropScene).setTheme('city');
+    (this.scene.get('Backdrop') as BackdropScene).setTheme('neon');
     audio.playMusic('city');
     bus.emit('state', 'menu');
   }

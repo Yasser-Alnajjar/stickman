@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
-import type { DecorDef, OneWayDef, SolidDef } from '@/game/config/regions';
+import type { BossId, RegionId } from '@/shared/types';
+import type { DecorDef, OneWayDef, RegionDef, SolidDef, ZoneDef } from '@/game/config/regions';
 
 /** Shared building blocks for world packs. Nothing here is specific to one world. */
 
@@ -93,4 +94,63 @@ export const hex = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
 export function wrapX(w: number, ox: number, extent: number, fn: (x: number) => void): void {
   fn(ox);
   if (ox + extent > w) fn(ox - w);
+}
+
+/* ------------------------------------------------------------------ boss arenas */
+
+export interface ArenaCfg {
+  id: RegionId; name: string; theme: string; width: number; boss: BossId; bossX: number; lampId: string; lampName: string;
+  /** One-way platforms as [x, y, width]. Every arena has its own layout. */
+  platforms: [number, number, number][];
+  /** Exit leading further on; omitted for the final arena. */
+  next?: { to: RegionId; spawn: string; label: string };
+  back: { to: RegionId; spawn: string };
+  scale?: { hp: number; atk: number };
+  /** Scenery: everything that makes this arena recognisable. Called with an empty builder (ground + east wall already placed). */
+  decorate(b: RegionBuilder): void;
+}
+
+/** Shared skeleton of a boss arena (entry trigger, sealing barrier position, exits). All the looks come from `decorate` + the theme. */
+export function arenaRegion(c: ArenaCfg): RegionDef {
+  const W = c.width;
+  const b = new RegionBuilder(W, '');
+  b.solids.push({ id: 'wallE', x: W - 40, y: 0, w: 40, h: GROUND_Y, kind: 'wall' });
+  c.platforms.forEach(([x, y, w], i) => b.oneWays.push({ id: `a${i + 1}`, x, y, w }));
+  c.decorate(b);
+  b.add('door', 40, 820, 110, 140, 'BACK');
+  const zones: ZoneDef[] = [
+    { id: 'boss_trigger', kind: 'boss', x: 620, y: 0, w: 60, h: 1080 },
+    { id: 'to_back', kind: 'exit', x: 40, y: 820, w: 110, h: 140, to: c.back.to, spawn: c.back.spawn },
+  ];
+  if (c.next) {
+    b.add('door', W - 160, 820, 110, 140, c.next.label);
+    zones.push({ id: 'to_next', kind: 'exit', x: W - 160, y: 820, w: 110, h: 140, to: c.next.to, spawn: c.next.spawn, requiresBoss: c.boss });
+  }
+  return {
+    id: c.id, name: c.name, width: W, height: 1080, groundY: GROUND_Y, theme: c.theme, music: 'none',
+    solids: b.solids, oneWays: b.oneWays, decor: b.decor, secrets: [], spawns: [], npcs: [],
+    checkpoints: [{ id: c.lampId, name: c.lampName, x: 240 }],
+    pickups: [], zones,
+    spawnPoints: { entry: { x: 330, y: GROUND_Y }, from_east: { x: W - 340, y: GROUND_Y } },
+    boss: { id: c.boss, x: c.bossX, barrierX: 590 },
+    enemyScale: c.scale,
+  };
+}
+
+/** Stateless weather: `n` slanted streaks wrapped inside the camera view (no per-particle state, one stroke call). */
+export function rainLayer(scene: Phaser.Scene, o: { n: number; color: number; alpha: number; vx: number; speed: number; len: number; depth?: number; width?: number }): { update(view: Phaser.Geom.Rectangle, t: number): void } {
+  const g = scene.add.graphics().setDepth(o.depth ?? 68);
+  return {
+    update(view, t) {
+      g.clear();
+      const W = view.width, H = view.height;
+      g.lineStyle(o.width ?? 1.4, o.color, o.alpha).beginPath();
+      for (let i = 0; i < o.n; i++) {
+        const px = view.left + (((hash(i) * W + t * o.vx) % W) + W) % W;
+        const py = view.top + (((hash(i + 99) * H + t * o.speed * (0.8 + hash(i + 7) * 0.4)) % H) + H) % H;
+        g.moveTo(px, py).lineTo(px - o.vx * 0.02 * o.len / 20, py + o.len);
+      }
+      g.strokePath();
+    },
+  };
 }

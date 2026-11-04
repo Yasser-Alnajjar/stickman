@@ -24,6 +24,9 @@ import { computeZoom } from '@/game/utils/viewport';
 import type { BackdropScene } from './BackdropScene';
 import { t } from '@/i18n';
 import { devFlags } from '@/devtools/flags';
+import { themeOf } from '@/game/world/themes';
+import { Ambience } from '@/game/world/Ambience';
+import type { WorldTheme } from '@/game/world/types';
 
 const REGION_TAGLINE: Partial<Record<RegionId, string>> = {
   city: 'Find allies. Clear the streets. Open the Warden Gate.',
@@ -53,6 +56,8 @@ export class WorldScene extends Phaser.Scene {
   spawner!: EnemySpawner;
   dialogue = new DialogueManager();
   boss: Boss | null = null;
+  theme!: WorldTheme;
+  private ambience: Ambience | null = null;
 
   private ctx!: WorldContext;
   private npcs: Npc[] = [];
@@ -95,6 +100,7 @@ export class WorldScene extends Phaser.Scene {
     this.unsubs = [];
     this.boss = null; this.barrier = null; this.barrierG = null;
 
+    this.theme = themeOf(region.theme);
     this.physics.world.setBounds(0, 0, region.width, region.height);
     this.physics.world.gravity.y = GRAVITY;
     this.cameras.main.setBounds(0, 0, region.width, region.height);
@@ -143,6 +149,7 @@ export class WorldScene extends Phaser.Scene {
       });
 
     this.buildEntities(region);
+    this.ambience = new Ambience(this, region, this.theme);
 
     // --- camera
     this.cameraTarget.x = this.player.cx;
@@ -265,6 +272,7 @@ export class WorldScene extends Phaser.Scene {
     for (const l of this.lamps) l.update(dt);
     for (const p of this.pickups) p.update(dt);
     this.fx.update(dt);
+    this.ambience?.update(dt, this.cameras.main.worldView, this.time.now);
 
     this.updateInteractions(dt);
     this.updateZones();
@@ -419,10 +427,16 @@ export class WorldScene extends Phaser.Scene {
     this.physics.add.existing(this.barrier, true);
     this.chunks.solidGroup.add(this.barrier);
     this.barrierG = this.add.graphics().setDepth(DEPTH.foreground);
-    this.barrierG.fillStyle(0xff3b3b, 0.35).fillRect(x - 15, 0, 30, h);
-    this.barrierG.fillStyle(0xff8080, 0.8).fillRect(x - 3, 0, 6, h);
+    const stage = this.theme.stage;
+    if (stage?.drawBarrier) stage.drawBarrier(this.barrierG, x, h);
+    else {
+      this.barrierG.fillStyle(0xff3b3b, 0.35).fillRect(x - 15, 0, 30, h);
+      this.barrierG.fillStyle(0xff8080, 0.8).fillRect(x - 3, 0, 6, h);
+    }
     audio.play('gate');
     audio.playMusic('boss');
+    // Each arena stages its own entrance (shutters, surf, eruption...) on top of the boss's own roar.
+    if (stage?.onStart) stage.onStart({ scene: this, region: this.region, fx: this.fx });
     b.engage();
     session.toast(t('The gate seals behind you'), 'warn');
   }
@@ -530,6 +544,7 @@ export class WorldScene extends Phaser.Scene {
     safe(() => this.clock.dispose());
     safe(() => this.player.input.destroy());
     safe(() => this.chunks.destroy());
+    this.ambience = null;
     this.debugG = null;
     session.hooks = null;
     if (runtime.world === this) runtime.world = null;

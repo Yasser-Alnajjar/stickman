@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import type { DecorDef, OneWayDef, RegionDef, SolidDef } from '@/game/config/regions';
+import type { Fx } from '@/game/managers/Fx';
 
 /** Identifier of a visual theme. One per city and one per boss arena; add a new string when you add a world. */
 export type ThemeId = string;
@@ -44,9 +45,11 @@ export interface AmbientParticles {
   update(dt: number, view: Phaser.Geom.Rectangle, t: number): void;
 }
 
+export interface StageContext { scene: Phaser.Scene; region: RegionDef; fx: Fx }
+
 export interface BossStagecraft {
   /** Called the instant the boss fight is triggered (shutters, lights, eruptions...). */
-  onStart?(scene: Phaser.Scene, region: RegionDef): void;
+  onStart?(c: StageContext): void;
   /** Paints the energy/heat seal that drops behind the player. */
   drawBarrier?(g: Phaser.GameObjects.Graphics, x: number, h: number): void;
   /** Camera flash colour used on engage. */

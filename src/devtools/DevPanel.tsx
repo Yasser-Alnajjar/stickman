@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { BossId, RegionId } from "@/shared/types";
 import { BOSS_ORDER } from "@/game/config/enemies";
 import { runtime } from "@/game/managers/runtime";
+import { WORLD_PACKS } from "@/game/world/worlds";
 import { t, useLang } from "@/i18n";
 import { devFlags } from "./flags";
 import { dt } from "./strings";
@@ -16,6 +17,9 @@ interface Snap {
   hp: string;
   state: string;
   pos: string;
+  theme: string;
+  fps: string;
+  chunks: string;
   stageId: string;
   god: boolean;
   inf: boolean;
@@ -41,6 +45,9 @@ function snapshot(): Snap {
     hp: w ? `${Math.ceil(w.player.health)}/${w.player.maxHealth}` : "-",
     state: w ? `${w.player.state}${w.player.alive ? "" : "|dead"}` : "",
     pos: w ? `${Math.round(w.player.cx)}, ${Math.round(w.player.feetY)}` : "-",
+    theme: w?.theme.id ?? "-",
+    fps: w ? String(Math.round(w.game.loop.actualFps)) : "-",
+    chunks: w ? `${w.chunks.loadedCount} | ${w.region.decor.length}` : "-",
     god: devFlags.god,
     inf: devFlags.infiniteHealth,
     unlock: devFlags.unlockAll,
@@ -182,6 +189,9 @@ export function DevPanel(): ReactElement {
           <KV k="Player HP" v={snap.hp} ltr />
           <KV k="Player state" v={playerState} />
           <KV k="Position" v={snap.pos} ltr />
+          <KV k="Theme" v={snap.theme} ltr />
+          <KV k="Frame rate" v={snap.fps} ltr />
+          <KV k="Chunks | decor" v={snap.chunks} ltr />
 
           <h4>{dt("Stage Navigation")}</h4>
           <div className="row">
@@ -204,6 +214,36 @@ export function DevPanel(): ReactElement {
               stageBtn,
             )}
           </div>
+
+          <h4>{dt("Worlds")}</h4>
+          {WORLD_PACKS.map((pack) => {
+            const city = pack.regions.find((r) => !r.boss);
+            const arenas = pack.regions.filter((r) => r.boss);
+            return (
+              <div className="row" key={pack.id}>
+                {city && stageBtn(city.id)}
+                {arenas.map((a) => (
+                  <Btn
+                    key={a.id}
+                    on={snap.stageId === a.id}
+                    onClick={() => dev.goTo(a.id)}
+                    title="Enter the boss arena at its entrance without starting the fight"
+                  >
+                    {dt("Arena")}
+                  </Btn>
+                ))}
+                {arenas.map((a) => (
+                  <Btn
+                    key={`f${a.id}`}
+                    onClick={() => dev.fightBoss(a.boss!.id)}
+                    title="Teleport into the arena and start the fight"
+                  >
+                    {dt("Entrance")}
+                  </Btn>
+                ))}
+              </div>
+            );
+          })}
 
           <h4>{dt("Boss Selection")}</h4>
           <div className="row">

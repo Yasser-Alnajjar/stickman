@@ -1,5 +1,5 @@
 import type { BossId, RegionId } from '@/shared/types';
-import { REGIONS } from '@/game/config/regions';
+import { REGIONS, STAGE_ORDER } from '@/game/config/regions';
 import { BOSSES } from '@/game/config/enemies';
 import { gameApi } from '@/game/managers/game-api';
 import { runtime } from '@/game/managers/runtime';
@@ -7,10 +7,10 @@ import { session } from '@/game/managers/session';
 import { saveManager } from '@/persistence/save-manager';
 import { devFlags } from './flags';
 
-/** Order the stages are met in the normal campaign. */
-export const STAGE_ORDER: RegionId[] = ['city', 'boss_arena', 'docks', 'tyrant_arena', 'foundry', 'empress_arena'];
-export const CITIES: RegionId[] = ['city', 'docks', 'foundry'];
-export const BOSS_STAGE: Record<BossId, RegionId> = { warden: 'boss_arena', marrow: 'tyrant_arena', ignis: 'empress_arena' };
+/** Stages in campaign order, derived from the world packs. */
+export { STAGE_ORDER };
+export const CITIES: RegionId[] = STAGE_ORDER.filter((id) => !REGIONS[id].boss);
+export const BOSS_STAGE = Object.fromEntries(STAGE_ORDER.filter((id) => REGIONS[id].boss).map((id) => [REGIONS[id].boss!.id, id])) as Record<BossId, RegionId>;
 
 /** x inside the arena's boss trigger zone; spawning here starts the fight immediately. */
 const FIGHT_X = 640;
