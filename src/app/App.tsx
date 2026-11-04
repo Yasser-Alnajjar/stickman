@@ -17,6 +17,7 @@ import { RotateDevice } from '@/app/components/screens/RotateDevice';
 import { useDevice } from '@/app/mobile/device';
 import { touchInput } from '@/game/input/TouchInput';
 import { t, useLang } from '@/i18n';
+import { installNativeBridge } from '@/app/native';
 
 /** Remounted when the language changes so every string re-renders; the Phaser canvas is a sibling and is untouched. */
 function Overlays({ play }: { play: string }): ReactElement {
@@ -49,6 +50,7 @@ export function App(): ReactElement {
   useEffect(() => {
     const unbind = bindGameToStore();
     const unlockAudio = audio.installUnlockListeners();
+    const unbindNative = installNativeBridge();
     void gameApi.refreshSaveInfo();
 
     const onKey = (e: KeyboardEvent): void => {
@@ -67,7 +69,12 @@ export function App(): ReactElement {
       }
     };
     const onVisibility = (): void => {
-      if (document.hidden && useGameStore.getState().play === 'playing') gameApi.pause();
+      if (document.hidden) {
+        if (useGameStore.getState().play === 'playing') gameApi.pause();
+        audio.suspend();
+      } else {
+        audio.resumeContext();
+      }
     };
     const onError = (e: ErrorEvent): void => { console.error(e.error ?? e.message); bus.emit('error', t('An unexpected error occurred. The game will try to keep running.')); };
     const onRejection = (e: PromiseRejectionEvent): void => { console.error(e.reason); bus.emit('error', t('An operation failed unexpectedly.')); };
@@ -80,6 +87,7 @@ export function App(): ReactElement {
       window.removeEventListener('unhandledrejection', onRejection);
       unbind();
       unlockAudio();
+      unbindNative();
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onVisibility);
     };

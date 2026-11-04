@@ -81,6 +81,16 @@ class AudioManager {
     }
   }
 
+  /** App went to background: stop the audio clock so nothing plays or queues up while hidden. */
+  suspend(): void {
+    try { if (this.ctx && this.ctx.state === 'running') void this.ctx.suspend(); } catch { /* ignore */ }
+  }
+
+  /** App is foreground again. */
+  resumeContext(): void {
+    try { if (this.ctx && this.ctx.state !== 'running') void this.ctx.resume(); } catch { /* ignore */ }
+  }
+
   set(settings: Partial<AudioSettings>): void {
     this.settings = { ...this.settings, ...settings };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.settings)); } catch { /* storage unavailable */ }
