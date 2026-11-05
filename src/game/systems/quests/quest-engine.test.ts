@@ -29,7 +29,7 @@ describe('quest line', () => {
     const p = createProfile();
     expect(settleQuests(p).started).toEqual(['clean_streets']);
     const log = questLog(p);
-    expect(log.map((e) => e.state)).toEqual(['active', 'locked', 'locked', 'locked', 'locked', 'locked', 'locked', 'locked']);
+    expect(log.map((e) => e.state)).toEqual(['active', ...Array(questOrder().length - 1).fill('locked')]);
     expect(log[0].current).toBe(true);
     expect(log[1].lock).toEqual({ kind: 'quest', quest: 'clean_streets' });
     expect(questState(p, QUESTS.rooftop_signal)).toBe('locked');

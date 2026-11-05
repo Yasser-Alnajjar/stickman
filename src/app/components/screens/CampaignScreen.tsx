@@ -82,6 +82,7 @@ export function CampaignScreen(): ReactElement {
       <div className="camp-actions">
         <div className="camp-sel">
           <b>{t('World {n}', { n: sel.number })} · {t(sel.name)}</b>
+          <span className="muted small">{t(sel.description)}</span>
           <span className="muted small">
             {sel.status === 'locked' && sel.requiresBossName
               ? t('Defeat {name} to unlock', { name: t(sel.requiresBossName) })

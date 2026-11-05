@@ -3,6 +3,8 @@ import type { AttackPhase, BossId, HitSpec } from '@/shared/types';
 import { DEPTH } from '@/shared/constants';
 import { ENEMY_ATTACKS } from '@/game/config/attacks';
 import { BOSSES, type BossDef, type BossPattern, type EnemyDef } from '@/game/config/enemies';
+import { BOSS_MOVES } from '@/game/world/stores';
+import type { BossApi, BossMove, HazardOpts, MovePlan, ProjectileSpec } from '@/game/config/boss-moves';
 import { Enemy } from './Enemy';
 import type { HitResult } from '@/game/systems/combat/CombatSystem';
 import type { Fighter } from '@/game/entities/Fighter';
@@ -28,7 +30,12 @@ type Mode =
 
 interface Wave { x: number; dir: -1 | 1; life: number; hits: Set<number> }
 /** A timed damage zone (falling cargo, flame pillar). */
-interface Hazard { x: number; w: number; top: number; h: number; life: number; spec: HitSpec; hits: Set<number>; color: number }
+interface Hazard {
+  x: number; w: number; top: number; h: number; life: number; spec: HitSpec; hits: Set<number>; color: number;
+  vx: number; vy: number; shape: 'column' | 'orb' | 'beam';
+}
+/** A per-frame effect a move script installed (gravity well, gale, ...). It ends with its timer or with the fight. */
+interface Field { life: number; fn: (dtMs: number) => void }
 interface CastEvent { at: number; fn: () => void; done: boolean }
 interface Cast { events: CastEvent[]; dur: number; end: 'pause' | 'exhausted' }
 
@@ -64,6 +71,9 @@ export class Boss extends Enemy {
   private whirlHits = new Set<number>();
   private readonly waves: Wave[] = [];
   private readonly hazards: Hazard[] = [];
+  private readonly fields: Field[] = [];
+  private plan: MovePlan | null = null;
+  private api: BossApi | null = null;
   private readonly waveG: Phaser.GameObjects.Graphics;
   private lastEmit = 0;
   onDefeated?: () => void;
@@ -100,6 +110,7 @@ export class Boss extends Enemy {
     this.mode = m;
     this.mt = 0;
     this.cast = null;
+    if (m !== 'cast') this.plan = null;
     this.vulnerable = m === 'exhausted';
     if (m !== 'cast') this.hidden = false;
   }
@@ -248,9 +259,10 @@ export class Boss extends Enemy {
       combo: near(220, 1.7, 0.35), slam: near(380, 1.3, 0.4), charge: adx > 320 ? 1.3 : 0.5, leap: adx > 340 ? 1.3 : 0.4,
       volley: adx > 300 ? 1.4 : 0.5, rain: 1, pillars: 1, teleport: adx > 200 ? 1.2 : 0.8, whirl: near(500, 1.2, 0.7),
     };
+    // Pack-defined moves have no built-in range preference: their weight alone decides how often they are used.
     let pool = this.bd.patterns.filter((o) => (o.from ?? 1) <= this.phase && o.id !== this.last);
     if (!pool.length) pool = this.bd.patterns.filter((o) => (o.from ?? 1) <= this.phase);
-    const weights = pool.map((o) => o.weight * affinity[o.id]);
+    const weights = pool.map((o) => o.weight * (affinity[o.id] ?? 1));
     let roll = Math.random() * weights.reduce((s, w) => s + w, 0);
     let pick = pool[0].id;
     for (let i = 0; i < pool.length; i++) { roll -= weights[i]; if (roll <= 0) { pick = pool[i].id; break; } }
@@ -291,6 +303,12 @@ export class Boss extends Enemy {
         this.leapTargetX = Phaser.Math.Clamp(player.cx, 300, this.ctx.region.width - 300);
         audio.play('telegraph');
         this.ctx.fx.warn(new Phaser.Geom.Rectangle(this.leapTargetX - 150, this.feetY - 70, 300, 70), 900);
+        break;
+      }
+      default: {
+        const move = BOSS_MOVES[this.bossId]?.[p];
+        if (move) this.startMove(move);
+        else this.setMode('pause'); // unknown pattern name: skip it rather than freeze the fight
         break;
       }
       case 'volley': this.startVolley(); break;
@@ -412,8 +430,45 @@ export class Boss extends Enemy {
     ], 1200, 'pause');
   }
 
-  private addHazard(x: number, w: number, h: number, life: number, spec: HitSpec, color: number): void {
-    this.hazards.push({ x, w, top: this.feetY - h, h, life, spec, hits: new Set(), color });
+  private addHazard(x: number, w: number, h: number, life: number, spec: HitSpec, color: number, extra: Partial<Hazard> = {}): void {
+    this.hazards.push({ x, w, top: this.feetY - h, h, life, spec, hits: new Set(), color, vx: 0, vy: 0, shape: 'column', ...extra });
+  }
+
+  /* ------------------------------------------------------------------ pack-scripted moves */
+
+  /** Runs a pack's move script. The script only schedules events; this class owns timing, hits and cleanup. */
+  private startMove(move: BossMove): void {
+    const plan = move(this.moveApi());
+    this.startCast(plan.events, plan.dur, plan.end ?? 'pause');
+    this.plan = plan;
+  }
+
+  private moveApi(): BossApi {
+    if (this.api) return this.api;
+    const self = this;
+    const player = this.ctx.getPlayer();
+    this.api = {
+      scene: this.ctx.scene, fx: this.ctx.fx,
+      get phase() { return self.phase; },
+      boss: { get cx() { return self.cx; }, get cy() { return self.cy; }, get feetY() { return self.feetY; }, get facing() { return self.facing; } },
+      player: { get cx() { return player.cx; }, get cy() { return player.cy; }, get feetY() { return player.feetY; }, get facing() { return player.facing; } },
+      region: { width: this.ctx.region.width, groundY: this.ctx.region.groundY, barrierX: this.ctx.region.boss?.barrierX ?? 590 },
+      spec: (name, burn) => this.spec(name, burn),
+      rect: (x, y, w, h) => new Phaser.Geom.Rectangle(x, y, w, h),
+      warn: (rect, ms, color) => this.ctx.fx.warn(rect, ms, color),
+      hazard: (o: HazardOpts) => this.addHazard(o.x, o.w, o.h, o.life, this.spec(o.attack, o.burn), o.color, { top: o.top ?? this.feetY - o.h, vx: o.vx ?? 0, vy: o.vy ?? 0, shape: o.shape ?? 'column' }),
+      projectile: (o: ProjectileSpec) => this.fireProjectile({ x: o.x, y: o.y, vx: o.vx, vy: o.vy, ay: o.ay, w: o.w, h: o.h, life: o.life, color: o.color, def: ENEMY_ATTACKS[this.k(o.attack)], burn: o.burn }),
+      field: (ms, fn) => { this.fields.push({ life: ms, fn }); },
+      nudgePlayer: (dx) => { const p = this.ctx.getPlayer(); if (p.alive) p.arcade.position.x += dx; },
+      hide: (v) => { this.hidden = v; },
+      moveTo: (x, y) => { this.arcade.reset(Phaser.Math.Clamp(x, 120, this.ctx.region.width - 100), y ?? this.arcade.center.y); this.arcade.setVelocity(0, 0); },
+      face: () => this.faceToward(this.ctx.getPlayer().cx),
+      strike: (name) => { this.setMode('combo'); this.launchAttack(this.k(name)); },
+      summon: (kind, x) => { this.ctx.spawnEnemy(kind, Phaser.Math.Clamp(x, (this.ctx.region.boss?.barrierX ?? 590) + 120, this.ctx.region.width - 140), this.feetY, 120); },
+      rand: () => Math.random(),
+      sfx: (name) => audio.play(name as never),
+    };
+    return this.api;
   }
 
   /* ------------------------------------------------------------------ jumps and charges */
@@ -480,7 +535,7 @@ export class Boss extends Enemy {
       } else if (base.startsWith('swing')) {
         this.arcade.setVelocityX(this.facing * 160);
         audio.play('heavy');
-      } else if (base === 'strike') {
+      } else if (base.startsWith('strike')) {
         this.slamEffects(false);
       }
     } else if (phase === 'startup' && base.startsWith('swing') && base !== 'swing1') {
@@ -501,6 +556,12 @@ export class Boss extends Enemy {
   private updateFx(dt: number): void {
     const g = this.waveG;
     g.clear();
+    const au = this.bd.aura;
+    if (au && this.alive && !this.hidden && this.mode !== 'dormant') {
+      const pulse = Math.sin(this.ctx.clock.now / 260);
+      g.fillStyle(au.color, 0.07 + 0.03 * pulse).fillCircle(this.cx, this.cy - 10, au.r * (1 + 0.05 * pulse));
+      g.fillStyle(au.color, 0.06).fillCircle(this.cx, this.cy - 10, au.r * 0.6);
+    }
     const spec = this.spec('wave');
     const floor = this.feetY;
     for (let i = this.waves.length - 1; i >= 0; i--) {
@@ -521,11 +582,30 @@ export class Boss extends Enemy {
       const h = this.hazards[i];
       h.life -= dt;
       if (h.life <= 0) { this.hazards.splice(i, 1); continue; }
+      h.x += h.vx * (dt / 1000);
+      h.top += h.vy * (dt / 1000);
       hazRect.setTo(h.x - h.w / 2, h.top, h.w, h.h);
       this.ctx.combat.hitRect(this, hazRect, h.spec, h.hits, h.x);
       const k = Math.min(1, h.life / 120);
-      g.fillStyle(h.color, 0.8 * k).fillRect(h.x - h.w / 2, h.top, h.w, h.h);
-      g.fillStyle(0xffffff, 0.5 * k).fillRect(h.x - h.w / 5, h.top, h.w / 2.5, h.h);
+      if (h.shape === 'orb') {
+        const cy = h.top + h.h / 2;
+        g.fillStyle(h.color, 0.3 * k).fillCircle(h.x, cy, h.w * 0.85);
+        g.fillStyle(h.color, 0.9 * k).fillEllipse(h.x, cy, h.w, h.h);
+        g.fillStyle(0xffffff, 0.7 * k).fillEllipse(h.x, cy, h.w * 0.4, h.h * 0.4);
+      } else if (h.shape === 'beam') {
+        g.fillStyle(h.color, 0.35 * k).fillRect(h.x - h.w / 2, h.top - 4, h.w, h.h + 8);
+        g.fillStyle(h.color, 0.9 * k).fillRect(h.x - h.w / 2, h.top, h.w, h.h);
+        g.fillStyle(0xffffff, 0.85 * k).fillRect(h.x - h.w / 2, h.top + h.h * 0.35, h.w, h.h * 0.3);
+      } else {
+        g.fillStyle(h.color, 0.8 * k).fillRect(h.x - h.w / 2, h.top, h.w, h.h);
+        g.fillStyle(0xffffff, 0.5 * k).fillRect(h.x - h.w / 5, h.top, h.w / 2.5, h.h);
+      }
+    }
+    for (let i = this.fields.length - 1; i >= 0; i--) {
+      const f = this.fields[i];
+      f.life -= dt;
+      if (f.life <= 0) { this.fields.splice(i, 1); continue; }
+      f.fn(dt);
     }
   }
 
@@ -559,6 +639,7 @@ export class Boss extends Enemy {
     this.hidden = false;
     this.waves.length = 0;
     this.hazards.length = 0;
+    this.fields.length = 0;
     this.projectiles.length = 0;
     this.waveG.clear();
     this.ctx.clock.slowmo(0.25, 1800);
@@ -616,9 +697,9 @@ export class Boss extends Enemy {
       case 'leap_air': if (a.velocity.y < 0) poseJump(P, a.velocity.y); else poseFall(P, a.velocity.y); break;
       case 'exhausted': poseStun(P, this.mt / 1000 * 2); P.lean = 0.35; P.drop = 6; break;
       case 'cast':
-        poseAttack(P, 'slam', 'startup', 1);
+        poseAttack(P, this.plan?.pose ?? 'slam', 'startup', 1);
         P.lean = -0.2 + Math.sin(this.mt / 70) * 0.04;
-        this.rig.glow = { color: this.bd.volley?.color ?? 0xff7a2a, amount: 0.6 };
+        this.rig.glow = { color: this.plan?.glow ?? this.bd.volley?.color ?? 0xff7a2a, amount: 0.6 };
         rate = 25;
         break;
       case 'whirl_tel':

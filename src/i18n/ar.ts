@@ -119,4 +119,9 @@ export const AR: Record<string, string> = {
   'Active Quests': 'المهام النشطة', 'Locked Quests': 'المهام المقفلة', 'Completed Quests': 'المهام المكتملة', 'Current Quest': 'المهمة الحالية',
   'Rewards': 'المكافآت', 'Requires: complete "{name}"': 'يتطلب: إكمال «{name}»', 'Requires: unlock {name}': 'يتطلب: فتح {name}',
   'Rewards earned': 'المكافآت المستلمة',
+  'That world does not exist.': 'هذا العالم غير موجود.',
+  'That world is still locked. Defeat the previous boss first.': 'هذا العالم ما زال مقفلًا. اهزم الزعيم السابق أولًا.',
+  'Could not load that world.': 'تعذّر تحميل ذلك العالم.',
+  'SECRET?': 'سرّ؟', 'BACK': 'رجوع', 'FERRY': 'العبّارة', 'DOCK 9': 'الرصيف ٩', 'SALT': 'الملح', 'HARBOR': 'الميناء', 'PIER 4': 'المرسى ٤', 'TYRANT': 'الطاغية', 'QUAY 7': 'الرصيف ٧',
+  'FORGE': 'الأتون', 'SMELT': 'الصهر', 'KILN': 'الفرن', 'SLAG': 'الخبث', 'ANVIL': 'السندان', 'EMPRESS': 'الإمبراطورة',
 };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { REGIONS, type RegionDef } from './regions';
 import { PLAYER_CFG } from './player';
+import { WORLD_PACKS } from '@/game/world/stores';
 import { GRAVITY } from '@/shared/constants';
 
 interface Surface { id: string; x0: number; x1: number; top: number }
@@ -101,15 +102,16 @@ describe('world graph', () => {
       expect(ids.every((id) => !id.includes(':')), r.id).toBe(true);
     }
   });
-  it('has three boss arenas, each with a distinct boss and enough regular enemies overall', () => {
+  it('has one boss arena per world, each with a distinct boss and enough regular enemies overall', () => {
     const bosses = all.filter((r) => r.boss).map((r) => r.boss!.id);
-    expect(new Set(bosses).size).toBe(3);
-    expect(all.reduce((n, r) => n + r.spawns.length, 0)).toBeGreaterThanOrEqual(80);
+    expect(bosses.length).toBe(WORLD_PACKS.length);
+    expect(new Set(bosses).size).toBe(WORLD_PACKS.length);
+    expect(all.reduce((n, r) => n + r.spawns.length, 0)).toBeGreaterThanOrEqual(80 + 25 * (WORLD_PACKS.length - 3));
   });
   it('arena exits that lead onward stay locked behind their boss', () => {
     for (const r of all.filter((r) => r.boss)) for (const z of r.zones.filter((z) => z.id === 'to_next')) expect(z.requiresBoss).toBe(r.boss!.id);
   });
   it('enemy placement never starts inside the first 450px of a stage entry', () => {
-    for (const r of all) for (const s of r.spawns) if (r.id !== 'city') expect(s.x, `${r.id}.${s.id}`).toBeGreaterThan(700);
+    for (const r of all) for (const s of r.spawns) if (r.id !== WORLD_PACKS[0].cityRegion) expect(s.x, `${r.id}.${s.id}`).toBeGreaterThan(700);
   });
 });

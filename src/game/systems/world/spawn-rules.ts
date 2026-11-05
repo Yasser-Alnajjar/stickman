@@ -13,3 +13,6 @@ export function shouldDespawn(distToPlayer: number, despawnRadius: number, groun
 export function hasFallenOut(cy: number, regionHeight: number): boolean {
   return cy > regionHeight + 200;
 }
+
+/** Key under which a placed enemy's death is stored in the profile (and therefore the save file). */
+export const spawnKey = (regionId: string, spawnId: string): string => `${regionId}:${spawnId}`;

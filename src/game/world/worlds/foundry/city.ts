@@ -79,10 +79,8 @@ export function buildEmberFoundry(): RegionDef {
       { id: 'fd_chest_crucible', item: 'health_tonic', qty: 2, x: 9250, y: 608, chest: true },
     ],
     zones: [
-      { id: 'to_tyrant', kind: 'exit', x: 60, y: 820, w: 110, h: 140, to: 'tyrant_arena', spawn: 'from_east' },
-      { id: 'to_empress', kind: 'exit', x: W - 230, y: 820, w: 110, h: 140, to: 'empress_arena', spawn: 'entry' },
     ],
-    spawnPoints: { from_west: { x: 300, y: GROUND_Y }, from_east: { x: W - 340, y: GROUND_Y } },
+    spawnPoints: { from_west: { x: 300, y: GROUND_Y }, from_arena: { x: W - 340, y: GROUND_Y } },
     enemyScale: { hp: 1.7, atk: 1.45 },
   };
 }

@@ -20,7 +20,7 @@ export type { EnemyState };
 export { ENEMY_TRANSITIONS };
 
 export interface ProjectileOpts {
-  x: number; y: number; vx: number; vy?: number; life?: number; w?: number; h?: number; color: number;
+  x: number; y: number; vx: number; vy?: number; ay?: number; life?: number; w?: number; h?: number; color: number;
   def: AttackDef; burn?: HitSpec['burn'];
 }
 interface Projectile extends Required<Omit<ProjectileOpts, 'burn' | 'def'>> { spec: HitSpec; hits: Set<number> }
@@ -366,7 +366,7 @@ export class Enemy extends Fighter {
 
   protected fireProjectile(o: ProjectileOpts): void {
     this.projectiles.push({
-      x: o.x, y: o.y, vx: o.vx, vy: o.vy ?? 0, life: o.life ?? 2400, w: o.w ?? 22, h: o.h ?? 12, color: o.color,
+      x: o.x, y: o.y, vx: o.vx, vy: o.vy ?? 0, ay: o.ay ?? 0, life: o.life ?? 2400, w: o.w ?? 22, h: o.h ?? 12, color: o.color,
       spec: { def: o.def, damageMult: 1, element: 'physical', comboScale: 1, burn: o.burn }, hits: new Set(),
     });
   }
@@ -379,6 +379,7 @@ export class Enemy extends Fighter {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const pr = this.projectiles[i];
       pr.life -= dt;
+      pr.vy += pr.ay * s;
       pr.x += pr.vx * s;
       pr.y += pr.vy * s;
       let spent = pr.life <= 0 || pr.x < 0 || pr.x > this.ctx.region.width || pr.y > this.ctx.region.groundY + 20;

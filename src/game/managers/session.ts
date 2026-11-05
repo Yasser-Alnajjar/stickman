@@ -154,6 +154,12 @@ class GameSession {
     if (res.completed.length) void this.autoSave(true);
   }
 
+  /** Records the active checkpoint and remembers it as that region's own last lamp. */
+  setCheckpoint(region: string, id: string, x: number, y: number): void {
+    this.profile.checkpoint = { region, id, x, y };
+    this.profile.checkpoints[region] = { id, x, y };
+  }
+
   registerKill(kind: EnemyKind): void {
     this.profile.stats.kills += 1;
     this.questEvent({ type: 'kill', target: kind });

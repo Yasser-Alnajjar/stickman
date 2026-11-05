@@ -1,8 +1,8 @@
 import type { BossId, ProfileData, RegionId } from '@/shared/types';
-import type { WorldPack } from '@/game/world/types';
-import type { RegionDef } from '@/game/config/regions';
-import { WORLD_PACKS } from '@/game/world/worlds';
-import { BOSSES } from '@/game/config/enemies';
+import type { WorldPackMeta } from '@/game/world/types';
+import { WORLD_PACKS, BOSSES } from '@/game/world/stores';
+import '@/game/world/worlds';
+import { SPAWN } from '@/game/world/linker';
 
 export type WorldStatus = 'completed' | 'unlocked' | 'locked';
 
@@ -12,6 +12,7 @@ export interface WorldEntry {
   packId: string;
   /** English source names (run through t() when displayed). */
   name: string;
+  description: string;
   bossId?: BossId;
   bossName?: string;
   /** Theme ids used to paint the thumbnail. */
@@ -38,43 +39,41 @@ export interface CampaignSummary {
   current?: WorldEntry;
 }
 
-/** A world is its pack's first region (the city) plus its boss arena, if any. Built purely from registered packs. */
-function describe(pack: WorldPack): { city: RegionDef; arena?: RegionDef; bossId?: BossId } {
-  const arena = pack.regions.find((r) => r.boss);
-  const city = pack.regions.find((r) => r !== arena) ?? pack.regions[0];
-  return { city, arena, bossId: arena?.boss?.id };
+/** The spawn used when starting a world from the map: world 1 uses its default start, later worlds their entrance. */
+export function entrySpawn(number: number): string | undefined {
+  return number === 1 ? undefined : SPAWN.cityFromPrev;
 }
 
-export function entrySpawn(city: RegionDef, number: number): string | undefined {
-  if (number === 1) return undefined;
-  return ['from_west', 'entry'].find((k) => k in city.spawnPoints);
+/** Whether the world at `index` may be entered: the first always, the others once the previous world's boss is down. */
+export function isWorldUnlocked(profile: ProfileData, index: number, packs: WorldPackMeta[] = WORLD_PACKS): boolean {
+  if (index <= 0) return index === 0 && packs.length > 0;
+  const prev = packs[index - 1];
+  return !!prev && profile.defeatedBosses.includes(prev.boss.id);
 }
 
 /**
- * Derives the whole campaign view from the save. Rules: world 1 is always available, world N unlocks when world N-1's
- * boss is defeated, a world is completed when its own boss is defeated. Nothing is stored beyond existing save data
- * (`defeatedBosses` and `checkpoint`), so new packs appear automatically.
+ * Derives the whole campaign view from the save and the registered manifests. Rules: world 1 is always available,
+ * world N unlocks when world N-1's boss is defeated, a world is completed when its own boss is defeated. Nothing is
+ * stored beyond existing save data (`defeatedBosses` and `checkpoint`), so new packs appear automatically.
+ * Needs no region data: it works on manifests alone, so no world has to be loaded to draw the map.
  */
-export function buildCampaign(profile: ProfileData, packs: WorldPack[] = WORLD_PACKS): CampaignSummary {
+export function buildCampaign(profile: ProfileData, packs: WorldPackMeta[] = WORLD_PACKS): CampaignSummary {
   const defeated = new Set(profile.defeatedBosses);
   const cpRegion = profile.checkpoint.region;
-  const parts = packs.map(describe);
-  const worlds: WorldEntry[] = parts.map((d, i) => {
-    const prev = parts[i - 1];
-    const done = !!d.bossId && defeated.has(d.bossId);
-    const open = i === 0 || !prev.bossId || defeated.has(prev.bossId);
-    const regions = packs[i].regions.map((r) => r.id);
-    const status: WorldStatus = done ? 'completed' : open ? 'unlocked' : 'locked';
+  const worlds: WorldEntry[] = packs.map((pack, i) => {
+    const prev = packs[i - 1];
+    const done = defeated.has(pack.boss.id);
+    const status: WorldStatus = done ? 'completed' : isWorldUnlocked(profile, i, packs) ? 'unlocked' : 'locked';
     return {
-      number: i + 1, packId: packs[i].id, name: d.city.name,
-      bossId: d.bossId, bossName: d.bossId ? BOSSES[d.bossId]?.name : undefined,
-      cityTheme: d.city.theme, arenaTheme: d.arena?.theme,
-      cityRegion: d.city.id, arenaRegion: d.arena?.id,
+      number: i + 1, packId: pack.id, name: pack.name, description: pack.description,
+      bossId: pack.boss.id, bossName: BOSSES[pack.boss.id]?.name ?? pack.boss.name,
+      cityTheme: pack.cityTheme, arenaTheme: pack.arenaTheme,
+      cityRegion: pack.cityRegion, arenaRegion: pack.arenaRegion,
       status,
-      current: status !== 'locked' && regions.includes(cpRegion),
-      inArena: status !== 'locked' && d.arena?.id === cpRegion,
-      requiresBossName: status === 'locked' && prev?.bossId ? BOSSES[prev.bossId]?.name : undefined,
-      spawn: entrySpawn(d.city, i + 1),
+      current: status !== 'locked' && (pack.cityRegion === cpRegion || pack.arenaRegion === cpRegion),
+      inArena: status !== 'locked' && pack.arenaRegion === cpRegion,
+      requiresBossName: status === 'locked' && prev ? prev.boss.name : undefined,
+      spawn: entrySpawn(i + 1),
     };
   });
   const completed = worlds.filter((w) => w.status === 'completed').length;
@@ -83,4 +82,11 @@ export function buildCampaign(profile: ProfileData, packs: WorldPack[] = WORLD_P
     percent: worlds.length ? Math.floor((completed / worlds.length) * 100) : 0,
     current: worlds.find((w) => w.current),
   };
+}
+
+/** The pack that owns a region plus whether the player may be there; `undefined` for unknown regions. */
+export function regionAccess(profile: ProfileData, regionId: string, packs: WorldPackMeta[] = WORLD_PACKS): { pack: WorldPackMeta; index: number; unlocked: boolean } | undefined {
+  const index = packs.findIndex((p) => p.cityRegion === regionId || p.arenaRegion === regionId);
+  if (index < 0) return undefined;
+  return { pack: packs[index], index, unlocked: isWorldUnlocked(profile, index, packs) };
 }

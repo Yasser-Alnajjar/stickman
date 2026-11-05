@@ -102,15 +102,12 @@ export interface ArenaCfg {
   id: RegionId; name: string; theme: string; width: number; boss: BossId; bossX: number; lampId: string; lampName: string;
   /** One-way platforms as [x, y, width]. Every arena has its own layout. */
   platforms: [number, number, number][];
-  /** Exit leading further on; omitted for the final arena. */
-  next?: { to: RegionId; spawn: string; label: string };
-  back: { to: RegionId; spawn: string };
   scale?: { hp: number; atk: number };
   /** Scenery: everything that makes this arena recognisable. Called with an empty builder (ground + east wall already placed). */
   decorate(b: RegionBuilder): void;
 }
 
-/** Shared skeleton of a boss arena (entry trigger, sealing barrier position, exits). All the looks come from `decorate` + the theme. */
+/** Shared skeleton of a boss arena (entry trigger, sealing barrier position). All the looks come from `decorate` + the theme. */
 export function arenaRegion(c: ArenaCfg): RegionDef {
   const W = c.width;
   const b = new RegionBuilder(W, '');
@@ -118,14 +115,8 @@ export function arenaRegion(c: ArenaCfg): RegionDef {
   c.platforms.forEach(([x, y, w], i) => b.oneWays.push({ id: `a${i + 1}`, x, y, w }));
   c.decorate(b);
   b.add('door', 40, 820, 110, 140, 'BACK');
-  const zones: ZoneDef[] = [
-    { id: 'boss_trigger', kind: 'boss', x: 620, y: 0, w: 60, h: 1080 },
-    { id: 'to_back', kind: 'exit', x: 40, y: 820, w: 110, h: 140, to: c.back.to, spawn: c.back.spawn },
-  ];
-  if (c.next) {
-    b.add('door', W - 160, 820, 110, 140, c.next.label);
-    zones.push({ id: 'to_next', kind: 'exit', x: W - 160, y: 820, w: 110, h: 140, to: c.next.to, spawn: c.next.spawn, requiresBoss: c.boss });
-  }
+  // Exits are not declared here: world/linker.ts derives them from the campaign order when the pack loads.
+  const zones: ZoneDef[] = [{ id: 'boss_trigger', kind: 'boss', x: 620, y: 0, w: 60, h: 1080 }];
   return {
     id: c.id, name: c.name, width: W, height: 1080, groundY: GROUND_Y, theme: c.theme, music: 'none',
     solids: b.solids, oneWays: b.oneWays, decor: b.decor, secrets: [], spawns: [],

@@ -8,6 +8,7 @@ import { computeZoom } from '@/game/utils/viewport';
 import { audio } from '@/game/managers/AudioManager';
 import { bus } from '@/game/events/bus';
 import type { BackdropScene } from './BackdropScene';
+import { WORLD_PACKS } from '@/game/world/stores';
 
 const ROUTINE = ['punch1', 'punch2', 'combo_kick', 'combo_heavy'] as const;
 
@@ -30,7 +31,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.applyZoom();
     this.scale.on('resize', this.applyZoom, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.applyZoom, this));
-    (this.scene.get('Backdrop') as BackdropScene).setTheme('neon');
+    (this.scene.get('Backdrop') as BackdropScene).setTheme(WORLD_PACKS[0].cityTheme);
     audio.playMusic('city');
     bus.emit('state', 'menu');
   }

@@ -8,6 +8,7 @@ import { ATTRIBUTES } from '@/game/config/progression';
 import { ITEMS } from '@/game/config/items';
 import { BOSSES, ENEMIES } from '@/game/config/enemies';
 import { REGIONS } from '@/game/config/regions';
+import { WORLD_PACKS } from '@/game/world/stores';
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
@@ -37,8 +38,8 @@ describe('Arabic translations', () => {
     for (const i of Object.values(ITEMS)) keys.push(i.name, i.description);
     for (const e of Object.values(ENEMIES)) keys.push(e.name);
     for (const b of Object.values(BOSSES)) keys.push(b.name, b.subtitle);
-    for (const tag of ['Cargo, cranes and cutthroats. Marrow rules the pier.', 'The forges never cool. Ignis awaits at the heart.']) keys.push(tag);
-    for (const r of Object.values(REGIONS)) keys.push(r.name, ...r.checkpoints.map((c) => c.name));
+    for (const p of WORLD_PACKS) keys.push(p.name, p.description, p.tagline, p.doorLabel);
+    for (const r of Object.values(REGIONS)) keys.push(r.name, ...r.checkpoints.map((c) => c.name), ...r.decor.flatMap((d) => (d.text ? [d.text] : [])));
     expect(missing(keys)).toEqual([]);
   });
 

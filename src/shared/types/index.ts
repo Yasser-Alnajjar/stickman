@@ -2,12 +2,14 @@
 
 export type Team = 'player' | 'enemy';
 export type Facing = 1 | -1;
-export type RegionId = 'city' | 'boss_arena' | 'docks' | 'tyrant_arena' | 'foundry' | 'empress_arena';
-export type BossId = 'warden' | 'marrow' | 'ignis';
+/** Content ids are plain strings: each world pack registers its own regions, bosses, enemies and items (see game/world/pack.ts). */
+export type RegionId = string;
+export type BossId = string;
 export type AbilityId = 'fire_punch' | 'lightning_dash';
 export type AttributeId = 'vitality' | 'strength' | 'endurance' | 'agility' | 'focus';
-export type ItemId = 'health_tonic' | 'energy_cell' | 'keycard' | 'warden_core' | 'tyrant_anchor' | 'ember_heart';
-export type EnemyKind = 'basic' | 'fast' | 'heavy' | 'archer' | 'guard' | 'blade' | 'boss';
+export type ItemId = string;
+/** `'boss'` is reserved for boss fighters; every other kind is registered by core content or a world pack. */
+export type EnemyKind = string;
 export type Element = 'physical' | 'fire' | 'lightning';
 export type SfxName =
   | 'step' | 'jump' | 'land' | 'punch' | 'kick' | 'heavy' | 'whoosh' | 'hit' | 'hitHeavy' | 'block'
@@ -102,6 +104,8 @@ export type QuestEvent =
   | { type: 'boss'; target: string };
 
 export interface CheckpointRef { region: RegionId; id: string; x: number; y: number }
+/** Last lamp activated inside one region (the region is the key it is stored under). */
+export interface RegionCheckpoint { id: string; x: number; y: number }
 
 export interface ProfileData {
   level: number;
@@ -115,8 +119,12 @@ export interface ProfileData {
   /** Spawn keys (`region:spawnId`) of enemies killed this playthrough; they never respawn. */
   killedEnemies: string[];
   flags: Record<string, boolean>;
+  /** Region-qualified pickup keys (`region:pickupId`) so two worlds may reuse a pickup id. */
   collected: string[];
+  /** The most recently activated checkpoint anywhere: where Continue resumes. */
   checkpoint: CheckpointRef;
+  /** Last lamp per region, so returning to a world resumes there without disturbing any other world. */
+  checkpoints: Record<RegionId, RegionCheckpoint>;
   inventory: { items: Partial<Record<ItemId, number>>; gold: number };
   stats: { kills: number; deaths: number; playTimeMs: number };
 }

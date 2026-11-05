@@ -114,9 +114,9 @@ export function buildNeonStreet(): RegionDef {
     ],
     zones: [
       { id: 'beacon', kind: 'reach', x: 4540, y: 190, w: 110, h: 110 },
-      { id: 'to_arena', kind: 'exit', x: 9400, y: 800, w: 120, h: 160, to: 'boss_arena', spawn: 'entry' },
     ],
-    spawnPoints: { gate_exit: { x: 9300, y: GROUND_Y } },
+    spawnPoints: { from_arena: { x: 9300, y: GROUND_Y } },
+    portals: { forward: { x: 9400, y: 800, w: 120, h: 160 } },
     enemyScale: { hp: 1, atk: 1 },
   };
 }

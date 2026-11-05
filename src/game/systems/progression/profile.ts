@@ -4,8 +4,12 @@ import type {
 import { ABILITIES, ABILITY_ORDER } from '@/game/config/abilities';
 import { ATTRIBUTES, ATTRIBUTE_ORDER, LEVEL_BONUS, MAX_LEVEL, xpToNext } from '@/game/config/progression';
 import { PLAYER_CFG } from '@/game/config/player';
+import { WORLD_PACKS } from '@/game/world/worlds';
 
-export const START_CHECKPOINT = { region: 'city' as RegionId, id: 'start', x: 160, y: 960 };
+/** Where a new game begins: the first registered world's city. */
+export function startCheckpoint(): { region: RegionId; id: string; x: number; y: number } {
+  return { region: WORLD_PACKS[0].cityRegion, id: 'start', x: 160, y: 960 };
+}
 
 /** Pure data/logic for character progression. No engine dependencies, fully unit-testable. */
 export function createProfile(): ProfileData {
@@ -16,7 +20,8 @@ export function createProfile(): ProfileData {
   const profile: ProfileData = {
     level: 1, xp: 0, skillPoints: 1, abilities, attributes, health: 0,
     quests: {}, defeatedBosses: [], killedEnemies: [], flags: {}, collected: [],
-    checkpoint: { ...START_CHECKPOINT },
+    checkpoint: startCheckpoint(),
+    checkpoints: {},
     inventory: { items: {}, gold: 0 },
     stats: { kills: 0, deaths: 0, playTimeMs: 0 },
   };

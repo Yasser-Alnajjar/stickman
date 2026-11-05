@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { computeZoom } from '@/game/utils/viewport';
+import { backdropQuality, computeZoom } from '@/game/utils/viewport';
+import { WORLD_PACKS } from '@/game/world/stores';
 import { themeOf } from '@/game/world/themes';
 import type { BackdropFrame, WorldTheme } from '@/game/world/types';
 
@@ -15,7 +16,8 @@ export class BackdropScene extends Phaser.Scene {
   private fxG!: Phaser.GameObjects.Graphics;
   private layers: Layer[] = [];
   private theme: WorldTheme | null = null;
-  private themeId = 'neon';
+  private themeId = WORLD_PACKS[0].cityTheme;
+  private readonly quality = backdropQuality();
   private readonly themeLru: string[] = [];
   private midX = 0;
   private midY = REF_Y;
@@ -57,9 +59,14 @@ export class BackdropScene extends Phaser.Scene {
     const at = this.themeLru.indexOf(theme.id);
     if (at >= 0) { this.themeLru.splice(at, 1); this.themeLru.push(theme.id); return; }
     const mk = (key: string, w: number, h: number, draw: (c: CanvasRenderingContext2D, w: number, h: number) => void): void => {
-      const tex = this.textures.createCanvas(key, w, h);
+      const q = this.quality;
+      const tex = this.textures.createCanvas(key, Math.max(2, Math.round(w * q)), Math.max(2, Math.round(h * q)));
       if (!tex) return;
-      draw(tex.getContext(), w, h);
+      const ctx = tex.getContext();
+      ctx.save();
+      ctx.scale(q, q);
+      draw(ctx, w, h);
+      ctx.restore();
       tex.refresh();
     };
     const art = theme.backdrop;
@@ -105,9 +112,10 @@ export class BackdropScene extends Phaser.Scene {
     for (const l of this.layers) {
       if (!l.sprite.visible) continue;
       const texH = this.textures.get(`${l.kind}_${this.themeId}`).getSourceImage().height;
-      l.sprite.setSize(w, texH * zoom).setTileScale(zoom, zoom);
+      const k = zoom / this.quality; // textures may be painted smaller on phones; scale back up to the same world size
+      l.sprite.setSize(w, texH * k).setTileScale(k, k);
       l.sprite.setPosition(0, h * l.base + (REF_Y - this.midY) * l.factor * zoom);
-      l.sprite.tilePositionX = this.midX * l.factor;
+      l.sprite.tilePositionX = (this.midX * l.factor * zoom) / k;
     }
   }
 

@@ -77,10 +77,8 @@ export function buildRustDocks(): RegionDef {
       { id: 'dk_chest_pier', item: 'health_tonic', qty: 1, x: 8900, y: 748, chest: true },
     ],
     zones: [
-      { id: 'to_warden', kind: 'exit', x: 60, y: 820, w: 110, h: 140, to: 'boss_arena', spawn: 'from_east' },
-      { id: 'to_tyrant', kind: 'exit', x: W - 230, y: 820, w: 110, h: 140, to: 'tyrant_arena', spawn: 'entry' },
     ],
-    spawnPoints: { from_west: { x: 300, y: GROUND_Y }, from_east: { x: W - 340, y: GROUND_Y } },
+    spawnPoints: { from_west: { x: 300, y: GROUND_Y }, from_arena: { x: W - 340, y: GROUND_Y } },
     enemyScale: { hp: 1.3, atk: 1.2 },
   };
 }

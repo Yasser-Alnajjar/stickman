@@ -334,7 +334,6 @@ export function buildWardenArena(): RegionDef {
     id: 'boss_arena', name: 'Warden Arena', theme: 'arena_warden', width: 2000, boss: 'warden', bossX: 1500, lampId: 'arena', lampName: 'Arena Lamp',
     // twin hover lifts, a raised central deck and a high maintenance catwalk: a vertical "reactor" layout
     platforms: [[740, 830, 200], [1010, 720, 220], [1290, 610, 260], [1620, 730, 220]],
-    back: { to: 'city', spawn: 'gate_exit' }, next: { to: 'docks', spawn: 'from_west', label: 'DOCKS' },
     decorate(b) {
       b.add('shutter', 1240, 330, 220, 300);
       b.add('servers', 700, 560, 220, 160); b.add('servers', 1780, 560, 150, 160);

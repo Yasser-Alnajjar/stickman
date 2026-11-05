@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { copyPose, lerpPose, makePose, type Pose } from './pose';
+import { A_EL, A_HA, B_EL, B_HA, F_FO, F_KN, G_FO, G_KN, HEAD, HIP, SHO, accessoryOf, tint, type AccessoryCtx } from './accessories';
 
 export interface RigStyle {
   color: number;
@@ -14,14 +15,7 @@ export interface RigPoint { x: number; y: number }
 
 const LEN = { thigh: 19, shin: 19, torso: 28, neck: 4, upper: 15, fore: 15 };
 
-// joint indices
-const HIP = 0, SHO = 1, HEAD = 2, A_EL = 3, A_HA = 4, B_EL = 5, B_HA = 6, F_KN = 7, F_FO = 8, G_KN = 9, G_FO = 10;
 const N_JOINTS = 11;
-
-const tint = (c: number, k: number): number => {
-  const r = Math.round(((c >> 16) & 255) * k), g = Math.round(((c >> 8) & 255) * k), b = Math.round((c & 255) * k);
-  return (r << 16) | (g << 8) | b;
-};
 
 /**
  * Procedural skeletal stickman. One Graphics object redrawn per frame from a Pose.
@@ -160,10 +154,15 @@ export class StickmanRig {
     const back = tint(col, 0.62);
     const lw = this.style.lineWidth * Math.max(0.8, s);
     const a = this.alpha;
-    const acc = this.style.accessory;
+    const def = accessoryOf(this.style.accessory);
+    const w = Math.sin(this.time * 9);
+    const actx: AccessoryCtx = {
+      g, xs, ys, F, s, a, hr, col, accent: this.style.accent, lineWidth: this.style.lineWidth, time: this.time,
+      stream: Math.min(1, Math.abs(this.velX) / 300), w,
+    };
 
     // Cape / scarf trail behind the body
-    this.drawBackAccessories(g, F, s, a, acc);
+    def.back?.(actx);
 
     const limb = (i: number, j: number, c: number, w = lw): void => {
       g.lineStyle(w, c, a);
@@ -179,11 +178,8 @@ export class StickmanRig {
     limb(SHO, B_EL, back); limb(B_EL, B_HA, back); joint(B_EL, back); joint(B_HA, back, lw * 1.25);
 
     // torso
-    if (acc === 'brute') {
-      g.fillStyle(tint(col, 0.8), a);
-      g.fillEllipse((xs[HIP] + xs[SHO]) / 2, (ys[HIP] + ys[SHO]) / 2, lw * 2.6, Math.hypot(xs[SHO] - xs[HIP], ys[SHO] - ys[HIP]) + lw * 0.8);
-    }
-    limb(HIP, SHO, col, lw * (acc === 'brute' ? 1.25 : 1));
+    def.beforeTorso?.(actx);
+    limb(HIP, SHO, col, lw * (def.torsoMul ?? 1));
     joint(HIP, col);
 
     // front limbs
@@ -202,113 +198,10 @@ export class StickmanRig {
     g.fillStyle(col, a);
     g.fillCircle(xs[HEAD], ys[HEAD], hr);
     // eye
-    g.fillStyle(acc === 'warden' ? 0xff2020 : acc === 'anchor' ? 0xffb454 : acc === 'crown' ? 0xfff2a0 : 0x10131f, a);
+    g.fillStyle(def.eye ?? 0x10131f, a);
     g.fillCircle(xs[HEAD] + F * hr * 0.45, ys[HEAD] - hr * 0.12, Math.max(1.6, hr * 0.2));
 
-    this.drawFrontAccessories(g, F, s, a, acc, hr, col);
-  }
-
-  private drawBackAccessories(g: Phaser.GameObjects.Graphics, F: 1 | -1, s: number, a: number, acc: string): void {
-    const xs = this.xs, ys = this.ys;
-    const w = Math.sin(this.time * 9);
-    const stream = Math.min(1, Math.abs(this.velX) / 300);
-    const { accent } = this.style;
-    if (acc === 'scarf' || acc === 'hero' || acc === 'blade') {
-      const len = (acc === 'hero' ? 26 : 22) * s;
-      const nx = xs[SHO], ny = ys[SHO] - 2 * s;
-      g.lineStyle(this.style.lineWidth * 0.8, accent, a);
-      g.beginPath();
-      g.moveTo(nx, ny);
-      for (let i = 1; i <= 4; i++) {
-        const t = i / 4;
-        g.lineTo(nx - F * (len * t * (0.8 + stream * 0.9)), ny + Math.sin(this.time * 10 + i) * 3 * t + (1 - stream) * t * 12 * s + w * t);
-      }
-      g.strokePath();
-    } else if (acc === 'headband') {
-      const hx = xs[HEAD], hy = ys[HEAD];
-      g.lineStyle(2.4, accent, a);
-      g.lineBetween(hx - F * 5, hy - 2, hx - F * (16 + stream * 8), hy + 3 + w * 2);
-      g.lineBetween(hx - F * 5, hy - 2, hx - F * (13 + stream * 8), hy - 3 - w * 2);
-    } else if (acc === 'crown') {
-      // flame train
-      const sx0 = xs[SHO], sy0 = ys[SHO], hipx = xs[HIP], hipy = ys[HIP];
-      g.fillStyle(0xd13a14, a);
-      g.fillTriangle(sx0, sy0 - 2 * s, hipx - F * (34 + stream * 40) * s + w * 4, hipy + 30 * s, hipx, hipy + 4 * s);
-      g.fillStyle(accent, a * 0.8);
-      g.fillTriangle(sx0, sy0, hipx - F * (18 + stream * 26) * s + w * 3, hipy + 22 * s, hipx, hipy);
-    } else if (acc === 'warden') {
-      // heavy cape
-      const sx0 = xs[SHO], sy0 = ys[SHO];
-      const hipx = xs[HIP], hipy = ys[HIP];
-      g.fillStyle(0x6b0f1a, a);
-      g.beginPath();
-      g.moveTo(sx0, sy0 - 2 * s);
-      g.lineTo(sx0 - F * (14 + stream * 22) * s, sy0 + 8 * s);
-      g.lineTo(hipx - F * (30 + stream * 36) * s + w * 3, hipy + 28 * s);
-      g.lineTo(hipx - F * 8 * s, hipy + 34 * s);
-      g.lineTo(hipx, hipy);
-      g.closePath();
-      g.fillPath();
-    }
-  }
-
-  private drawFrontAccessories(g: Phaser.GameObjects.Graphics, F: 1 | -1, s: number, a: number, acc: string, hr: number, col: number): void {
-    const xs = this.xs, ys = this.ys;
-    const { accent } = this.style;
-    const hx = xs[HEAD], hy = ys[HEAD];
-    if (acc === 'hero') {
-      g.lineStyle(2.6, accent, a);
-      g.lineBetween(hx - F * hr, hy - hr * 0.25, hx + F * hr, hy - hr * 0.25);
-    } else if (acc === 'headband') {
-      g.lineStyle(2.6, accent, a);
-      g.lineBetween(hx - F * hr, hy - hr * 0.35, hx + F * hr, hy - hr * 0.35);
-    } else if (acc === 'brute') {
-      g.fillStyle(tint(col, 0.55), a);
-      g.fillCircle(xs[SHO], ys[SHO] + 2 * s, 7 * s);
-      g.fillStyle(accent, a);
-      g.fillRect(xs[HIP] - 8 * s, ys[HIP] - 4 * s, 16 * s, 4 * s); // belt
-      g.fillStyle(tint(col, 0.55), a);
-      g.fillRect(hx - hr, hy - hr, hr * 2, hr * 0.7); // brow plate
-    } else if (acc === 'warden') {
-      g.lineStyle(4, 0xd9d9e8, a);
-      g.lineBetween(hx - hr * 0.6, hy - hr * 0.6, hx - hr * 1.1 - F * 2, hy - hr * 1.9);
-      g.lineBetween(hx + hr * 0.6, hy - hr * 0.6, hx + hr * 1.1 + F * 2, hy - hr * 1.9);
-      g.fillStyle(0x2a2f45, a);
-      g.fillRect(hx - hr * 1.05, hy - hr * 1.05, hr * 2.1, hr * 1.0);
-      g.fillStyle(0xff2020, a);
-      g.fillRect(hx + F * hr * 0.1 - 1, hy - hr * 0.5, hr * 0.9, 3);
-      g.fillStyle(0x3a4060, a);
-      g.fillCircle(xs[SHO] - F * 2, ys[SHO] + 3 * s, 10 * s);
-      g.fillCircle(xs[SHO] + F * 2, ys[SHO] + 3 * s, 8 * s);
-      g.lineStyle(4, 0xb0b4d0, a);
-      g.lineBetween(xs[HIP] - 10 * s, ys[HIP] - 2 * s, xs[HIP] + 10 * s, ys[HIP] - 2 * s);
-    } else if (acc === 'hood') {
-      g.fillStyle(tint(col, 0.55), a);
-      g.fillTriangle(hx - hr * 1.15, hy + hr * 0.3, hx + hr * 1.15, hy + hr * 0.3, hx - F * hr * 0.35, hy - hr * 2.1);
-    } else if (acc === 'shield') {
-      const top = ys[SHO] - 2 * s, bot = ys[HIP] + 6 * s, sx = xs[SHO] + F * 13 * s;
-      g.fillStyle(tint(col, 0.7), a).fillRect(sx - 9 * s, top, 18 * s, bot - top);
-      g.lineStyle(3, accent, a).strokeRect(sx - 9 * s, top, 18 * s, bot - top);
-      g.fillStyle(accent, a).fillRect(sx - 2, top + 4, 4, bot - top - 8);
-      g.fillStyle(tint(col, 0.6), a).fillRect(hx - hr * 1.05, hy - hr * 1.05, hr * 2.1, hr * 0.8); // helm
-    } else if (acc === 'blade') {
-      g.lineStyle(3, 0xe6ecff, a);
-      g.lineBetween(xs[A_HA], ys[A_HA], xs[A_HA] + F * 36 * s, ys[A_HA] - 26 * s);
-      g.lineStyle(2, accent, a).lineBetween(hx - F * hr, hy - hr * 0.3, hx + F * hr, hy - hr * 0.3);
-    } else if (acc === 'anchor') {
-      const ax = xs[B_HA], ay = ys[B_HA];
-      g.lineStyle(5, 0x8a97a8, a);
-      g.lineBetween(ax, ay - 46 * s, ax, ay + 34 * s);
-      g.lineBetween(ax - 16 * s, ay - 34 * s, ax + 16 * s, ay - 34 * s);
-      g.lineBetween(ax - 18 * s, ay + 18 * s, ax, ay + 34 * s);
-      g.lineBetween(ax + 18 * s, ay + 18 * s, ax, ay + 34 * s);
-      g.fillStyle(accent, a).fillRect(hx - hr * 1.1, hy - hr * 1.5, hr * 2.2, hr * 0.7); // captain's hat
-      g.fillStyle(tint(col, 0.55), a).fillCircle(xs[SHO], ys[SHO] + 3 * s, 9 * s);
-    } else if (acc === 'crown') {
-      g.fillStyle(accent, a);
-      for (let i = -1; i <= 1; i++) g.fillTriangle(hx + i * hr * 0.7 - hr * 0.3, hy - hr * 0.9, hx + i * hr * 0.7 + hr * 0.3, hy - hr * 0.9, hx + i * hr * 0.7, hy - hr * (i === 0 ? 2.5 : 2));
-      g.fillStyle(0xff7a2a, a * 0.9).fillCircle(xs[A_HA], ys[A_HA], 7 * s);
-    }
+    def.front?.(actx);
   }
 
   destroy(): void {

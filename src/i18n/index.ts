@@ -11,6 +11,12 @@ const STORAGE_KEY = 'stickman.lang';
 const DICTS: Record<Lang, Record<string, string>> = { en: {}, ar: AR };
 const listeners = new Set<() => void>();
 
+/** Merges translations contributed by a world pack. English is the key, so only non-English dictionaries exist. */
+export function registerTranslations(lang: Lang, entries: Record<string, string>): void {
+  if (lang === 'en') return;
+  Object.assign(DICTS[lang], entries);
+}
+
 function detect(): Lang {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);

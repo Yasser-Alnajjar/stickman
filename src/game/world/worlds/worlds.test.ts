@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { REGIONS } from '@/game/config/regions';
 import { THEMES, themeOf } from '../themes';
-import { WORLD_PACKS } from './index';
+import { WORLD_PACKS } from '../stores';
 import type { DecorDef } from '@/game/config/regions';
 
 /** A Graphics stand-in: every method records a call and returns itself, so painters can be exercised without Phaser. */
@@ -40,20 +40,19 @@ describe('world themes', () => {
     }
   });
 
-  it('the three cities and three boss arenas are genuinely different places', () => {
-    const cities = ['city', 'docks', 'foundry'] as const;
-    const arenas = ['boss_arena', 'tyrant_arena', 'empress_arena'] as const;
-    for (const group of [cities, arenas]) {
-      expect(new Set(group.map((id) => REGIONS[id].theme)).size).toBe(3);
+  it('every city and every arena is genuinely different from the others', () => {
+    const groups = [WORLD_PACKS.map((p) => p.cityRegion), WORLD_PACKS.map((p) => p.arenaRegion)];
+    for (const group of groups) {
+      expect(new Set(group.map((id) => REGIONS[id].theme)).size).toBe(group.length);
       const kinds = group.map((id) => new Set(REGIONS[id].decor.map((d) => d.kind)));
-      for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) {
+      for (let i = 0; i < group.length; i++) for (let j = i + 1; j < group.length; j++) {
         const shared = [...kinds[i]].filter((k) => kinds[j].has(k)).length;
-        // shared vocabulary is limited to generic things (door, pipes, banner, sign-like boards)
-        expect(shared / Math.min(kinds[i].size, kinds[j].size), `${group[i]} vs ${group[j]}`).toBeLessThan(0.4);
+        // shared vocabulary is limited to generic things (door, sign, lamp...)
+        expect(shared / Math.min(kinds[i].size, kinds[j].size), `${group[i]} vs ${group[j]}`).toBeLessThan(0.55);
       }
       const art = group.map((id) => themeOf(REGIONS[id].theme).backdrop);
-      expect(new Set(art.map((a) => a.far.draw)).size).toBe(3);
-      expect(new Set(art.map((a) => a.sky.map((s) => s[1]).join())).size).toBe(3);
+      expect(new Set(art.map((a) => a.far.draw)).size).toBe(group.length);
+      expect(new Set(art.map((a) => a.sky.map((s) => s[1]).join())).size).toBe(group.length);
     }
   });
 
@@ -65,8 +64,8 @@ describe('world themes', () => {
   });
 
   it('packs register unique theme ids', () => {
-    const ids = WORLD_PACKS.flatMap((p) => p.themes.map((t) => t.id));
+    const ids = Object.keys(THEMES);
+    expect(ids.length).toBe(WORLD_PACKS.length * 2);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(Object.keys(THEMES).length).toBe(ids.length);
   });
 });

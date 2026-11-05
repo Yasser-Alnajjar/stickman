@@ -1,5 +1,6 @@
 import type { BossId, ProfileData } from '@/shared/types';
-import { REGIONS, STAGE_ORDER } from '@/game/config/regions';
+import { WORLD_PACKS } from '@/game/world/stores';
+import '@/game/world/worlds';
 
 /**
  * Campaign completion, derived from data: the campaign is the ordered list of stage bosses that exist in the
@@ -7,7 +8,7 @@ import { REGIONS, STAGE_ORDER } from '@/game/config/regions';
  * game is simply "not complete" again until the new boss falls.
  */
 export function campaignBosses(): BossId[] {
-  return STAGE_ORDER.map((id) => REGIONS[id].boss?.id).filter((b): b is BossId => !!b);
+  return WORLD_PACKS.map((p) => p.boss.id);
 }
 
 /** Flag key is scoped to the campaign's final boss, so a future final boss earns its own completion. */

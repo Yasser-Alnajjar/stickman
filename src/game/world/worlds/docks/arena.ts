@@ -185,7 +185,6 @@ export function buildTyrantArena(): RegionDef {
     scale: { hp: 1.3, atk: 1.2 },
     // cargo slings climbing in a pyramid toward the crane cab, then dropping to a wing platform
     platforms: [[740, 830, 200], [1000, 720, 220], [1300, 610, 300], [1700, 740, 220], [1980, 840, 200]],
-    back: { to: 'docks', spawn: 'from_east' }, next: { to: 'foundry', spawn: 'from_west', label: 'FOUNDRY' },
     decorate(b) {
       b.add('ship', 120, GROUND_Y - 420, 1800, 460);
       b.add('cargo_wall', 1780, 560, 500, GROUND_Y - 560);

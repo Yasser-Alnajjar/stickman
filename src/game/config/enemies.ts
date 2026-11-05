@@ -1,5 +1,6 @@
 import type { BossId, EnemyKind, ItemId } from '@/shared/types';
 import { COLORS } from '@/shared/constants';
+import { BOSSES, ENEMIES } from '@/game/world/stores';
 
 export interface EnemyDef {
   kind: EnemyKind;
@@ -33,7 +34,8 @@ export interface EnemyDef {
   style: { color: number; lineWidth: number; scale: number; accessory: string; accent: number; headRadius: number };
 }
 
-export const ENEMIES: Record<Exclude<EnemyKind, 'boss'>, EnemyDef> = {
+/** Enemies every world may use. World packs add their own through their manifest (see world/registry.ts). */
+const CORE_ENEMIES: Record<string, EnemyDef> = {
   basic: {
     kind: 'basic', name: 'Street Thug', maxHealth: 60, attack: 10, defense: 2,
     width: 28, height: 88, patrolSpeed: 60, chaseSpeed: 150, detectRange: 420, detectHeight: 160,
@@ -85,7 +87,9 @@ export const ENEMIES: Record<Exclude<EnemyKind, 'boss'>, EnemyDef> = {
   },
 };
 
-export type BossPattern = 'combo' | 'slam' | 'charge' | 'leap' | 'volley' | 'rain' | 'pillars' | 'teleport' | 'whirl';
+/** Built-in patterns are the names below; a pack may add any other name and script it in its content module (`moves`). */
+export type BossPattern = string;
+export const BUILTIN_PATTERNS = ['combo', 'slam', 'charge', 'leap', 'volley', 'rain', 'pillars', 'teleport', 'whirl'] as const;
 
 export interface BossDef {
   id: BossId;
@@ -106,56 +110,26 @@ export interface BossDef {
   /** Patterns by weight; `from` is the first phase in which the pattern is available. */
   patterns: { id: BossPattern; weight: number; from?: number }[];
   /** Reinforcements called in when entering `phase`. */
-  summon?: { phase: number; kinds: Exclude<EnemyKind, 'boss'>[] };
+  summon?: { phase: number; kinds: string[] };
   /** Multiplier on the telegraph/rest tempo per phase (lower = faster). */
   tempo: [number, number, number];
   style: { color: number; lineWidth: number; scale: number; accessory: string; accent: number; headRadius: number };
   eye: number;
+  /** Optional pulsing halo around the boss while the fight is on (part of its visual identity). */
+  aura?: { color: number; r: number };
   /** Projectile barrage settings for the `volley` pattern. */
   volley?: { speed: number; w: number; h: number; color: number; heights: number[]; aim: boolean; rounds: [number, number, number]; fan: [number, number, number]; burn?: { dps: number; duration: number } };
 }
 
-export const BOSSES: Record<BossId, BossDef> = {
-  warden: {
-    id: 'warden', name: 'Iron Warden Kaizo', subtitle: 'Guardian of the City Gate', prefix: 'boss',
-    maxHealth: 480, attack: 8, defense: 3, width: 56, height: 160, walkSpeed: 105, xp: 400, gold: 150,
-    drop: 'warden_core', phaseThresholds: [0.66, 0.33],
-    patterns: [{ id: 'combo', weight: 3 }, { id: 'slam', weight: 3 }, { id: 'charge', weight: 3 }, { id: 'leap', weight: 3, from: 2 }],
-    summon: { phase: 3, kinds: ['basic', 'basic'] },
-    tempo: [1.2, 1, 0.85],
-    style: { color: COLORS.boss, lineWidth: 11, scale: 1.85, accessory: 'warden', accent: 0xffd24a, headRadius: 10 },
-    eye: 0xff2020,
-  },
-  marrow: {
-    id: 'marrow', name: 'Tyrant Marrow', subtitle: 'Harbor Lord of the Rust Docks', prefix: 'marrow',
-    maxHealth: 760, attack: 12, defense: 5, width: 62, height: 170, walkSpeed: 118, xp: 700, gold: 260,
-    drop: 'tyrant_anchor', phaseThresholds: [0.65, 0.3],
-    patterns: [
-      { id: 'combo', weight: 3 }, { id: 'volley', weight: 3 }, { id: 'slam', weight: 2 },
-      { id: 'rain', weight: 3, from: 2 }, { id: 'charge', weight: 2, from: 2 },
-    ],
-    summon: { phase: 3, kinds: ['archer', 'guard'] },
-    tempo: [1.1, 0.95, 0.8],
-    style: { color: 0x3fb6c9, lineWidth: 12, scale: 1.95, accessory: 'anchor', accent: 0xffb454, headRadius: 11 },
-    eye: 0xffb454,
-    volley: { speed: 640, w: 46, h: 10, color: 0xffb454, heights: [26, 125], aim: false, rounds: [2, 3, 4], fan: [1, 1, 1] },
-  },
-  ignis: {
-    id: 'ignis', name: 'Empress Ignis', subtitle: 'Sovereign of the Ember Foundry', prefix: 'ignis',
-    maxHealth: 1000, attack: 15, defense: 6, width: 50, height: 158, walkSpeed: 130, xp: 1200, gold: 450,
-    drop: 'ember_heart', phaseThresholds: [0.7, 0.35],
-    patterns: [
-      { id: 'combo', weight: 2 }, { id: 'teleport', weight: 3 }, { id: 'pillars', weight: 3 },
-      { id: 'volley', weight: 2, from: 2 }, { id: 'whirl', weight: 2, from: 2 }, { id: 'leap', weight: 2, from: 3 },
-    ],
-    summon: { phase: 3, kinds: ['blade', 'blade'] },
-    tempo: [1, 0.85, 0.7],
-    style: { color: 0xff7a2a, lineWidth: 9, scale: 1.8, accessory: 'crown', accent: 0xfff2a0, headRadius: 10 },
-    eye: 0xfff2a0,
-    volley: { speed: 470, w: 26, h: 26, color: 0xff7a2a, heights: [70], aim: true, rounds: [2, 2, 3], fan: [1, 3, 3], burn: { dps: 6, duration: 2500 } },
-  },
-};
 
-export const BOSS_ORDER: BossId[] = ['warden', 'marrow', 'ignis'];
-/** Back-compat alias for the first boss. */
-export const WARDEN = BOSSES.warden;
+Object.assign(ENEMIES, CORE_ENEMIES);
+
+export { BOSSES, ENEMIES };
+
+/** Boss ids in campaign order. */
+export function bossOrder(): BossId[] {
+  return Object.keys(BOSSES);
+}
+
+// Loads the world-pack manifests (and with them every boss, quest and item) whenever this module is used.
+import '@/game/world/worlds';

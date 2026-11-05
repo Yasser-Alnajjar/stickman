@@ -1,6 +1,7 @@
 import type { BossId, RegionId } from '@/shared/types';
-import { REGIONS, STAGE_ORDER } from '@/game/config/regions';
-import { BOSSES } from '@/game/config/enemies';
+import { REGIONS, stageOrder } from '@/game/config/regions';
+import { BOSSES, WORLD_PACKS } from '@/game/world/stores';
+import { collectedKey } from '@/persistence/legacy-v1';
 import { gameApi } from '@/game/managers/game-api';
 import { runtime } from '@/game/managers/runtime';
 import { session } from '@/game/managers/session';
@@ -8,9 +9,9 @@ import { saveManager } from '@/persistence/save-manager';
 import { devFlags } from './flags';
 
 /** Stages in campaign order, derived from the world packs. */
-export { STAGE_ORDER };
-export const CITIES: RegionId[] = STAGE_ORDER.filter((id) => !REGIONS[id].boss);
-export const BOSS_STAGE = Object.fromEntries(STAGE_ORDER.filter((id) => REGIONS[id].boss).map((id) => [REGIONS[id].boss!.id, id])) as Record<BossId, RegionId>;
+export const STAGE_ORDER: RegionId[] = stageOrder();
+export const CITIES: RegionId[] = WORLD_PACKS.map((p) => p.cityRegion);
+export const BOSS_STAGE: Record<BossId, RegionId> = Object.fromEntries(WORLD_PACKS.map((p) => [p.boss.id, p.arenaRegion]));
 
 /** x inside the arena's boss trigger zone; spawning here starts the fight immediately. */
 const FIGHT_X = 640;
@@ -26,17 +27,18 @@ export function ensureSandbox(): void {
   if (!runtime.world) session.reset(); // nothing running yet: start from a clean disposable profile
 }
 
-export function stageName(id: RegionId | undefined): string { return id ? REGIONS[id].name : '-'; }
+export function stageName(id: RegionId | undefined): string {
+  if (!id) return '-';
+  return REGIONS[id]?.name ?? WORLD_PACKS.find((p) => p.cityRegion === id)?.name ?? id;
+}
 
 export function goTo(region: RegionId, spawn?: string | { x: number; y: number }): void {
   ensureSandbox();
-  const r = REGIONS[region];
-  const pos = spawn ?? (r.spawnPoints.entry ?? r.spawnPoints.from_west ?? { x: 160, y: r.groundY });
-  gameApi.startWorld({ region, spawn: pos });
+  void gameApi.startWorld({ region, spawn: spawn ?? 'entry' });
 }
 
 export function stepStage(delta: 1 | -1): void {
-  const cur = STAGE_ORDER.indexOf(runtime.world?.region.id ?? 'city');
+  const cur = STAGE_ORDER.indexOf(runtime.world?.region.id ?? STAGE_ORDER[0]);
   goTo(STAGE_ORDER[Math.min(STAGE_ORDER.length - 1, Math.max(0, cur + delta))]);
 }
 
@@ -61,8 +63,8 @@ export function defeatBossNow(): boolean {
 function clearRegionProgress(id: RegionId, includeBoss: boolean): void {
   const p = session.profile;
   p.killedEnemies = p.killedEnemies.filter((k) => !k.startsWith(`${id}:`));
-  const ids = new Set(REGIONS[id].pickups.map((x) => x.id));
-  p.collected = p.collected.filter((c) => !ids.has(c));
+  const keys = new Set(REGIONS[id].pickups.map((x) => collectedKey(id, x.id)));
+  p.collected = p.collected.filter((c) => !keys.has(c));
   const boss = REGIONS[id].boss?.id;
   if (includeBoss && boss) {
     p.defeatedBosses = p.defeatedBosses.filter((b) => b !== boss);
@@ -76,7 +78,7 @@ export function resetKills(): void {
   if (!w) return;
   ensureSandbox();
   clearRegionProgress(w.region.id, false);
-  gameApi.startWorld({ region: w.region.id, spawn: { x: w.player.cx, y: w.player.feetY - 2 } });
+  void gameApi.startWorld({ region: w.region.id, spawn: { x: w.player.cx, y: w.player.feetY - 2 } });
 }
 
 /** Full stage reset: enemies, chests and the boss are restored and the stage restarts from its entrance. */
@@ -103,7 +105,7 @@ export function restoreNormal(): void {
 export function resetSandboxProgress(): void {
   ensureSandbox();
   session.reset();
-  goTo('city', { x: 160, y: GROUND });
+  goTo(STAGE_ORDER[0], { x: 160, y: GROUND });
 }
 
 /** Seeds the sandbox with a copy of the most recent real save (the save itself stays read-only). */

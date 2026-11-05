@@ -3,12 +3,12 @@ import { ENEMIES, type EnemyDef } from '@/game/config/enemies';
 import { session } from '@/game/managers/session';
 import { Enemy } from '@/game/entities/enemies/Enemy';
 import type { WorldContext } from './context';
-import { hasFallenOut, shouldDespawn, shouldSpawn } from './spawn-rules';
+import { hasFallenOut, shouldDespawn, shouldSpawn, spawnKey } from './spawn-rules';
+
+export { spawnKey };
 
 interface Entry { def: SpawnDef; enemy: Enemy | null; killed: boolean }
 
-/** Key under which a placed enemy's death is stored in the profile (and therefore the save file). */
-export const spawnKey = (regionId: string, spawnId: string): string => `${regionId}:${spawnId}`;
 
 /** Region difficulty: same enemy kinds hit and endure more the deeper the stage. */
 export function scaleDef(def: EnemyDef, scale: { hp: number; atk: number } | undefined): EnemyDef {

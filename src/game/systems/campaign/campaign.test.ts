@@ -8,15 +8,16 @@ describe('campaign completion', () => {
   const all = campaignBosses();
 
   it('derives the campaign from the world packs in order', () => {
-    expect(all).toEqual(['warden', 'marrow', 'ignis']);
+    expect(all).toEqual(['warden', 'marrow', 'ignis', 'azcal', 'glacia', 'khamsin', 'aegis', 'mordaine', 'horol', 'zephyros']);
+    expect(all.length).toBe(10);
   });
 
   it('is not complete until every boss is defeated', () => {
     const p = createProfile();
-    p.defeatedBosses = ['warden', 'marrow'];
+    p.defeatedBosses = all.slice(0, -1);
     expect(isCampaignComplete(p)).toBe(false);
     expect(shouldRecordCompletion(p)).toBe(false);
-    p.defeatedBosses.push('ignis');
+    p.defeatedBosses.push(all[all.length - 1]);
     expect(shouldRecordCompletion(p)).toBe(true);
   });
 
@@ -35,7 +36,7 @@ describe('campaign completion', () => {
     const res = migrate(JSON.parse(JSON.stringify(serializeSave(p))));
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.save.profile.flags[completionFlag('ignis')]).toBe(true);
+    expect(res.save.profile.flags[completionFlag('zephyros')]).toBe(true);
     expect(res.save.profile.inventory.gold).toBe(123);
     expect(shouldRecordCompletion(res.save.profile)).toBe(false);
   });

@@ -1,10 +1,12 @@
 import type { WorldTheme } from './types';
-import { WORLD_PACKS } from './worlds';
+import { THEMES } from './stores';
+import '@/game/world/worlds';
 
-export const THEMES: Record<string, WorldTheme> = Object.fromEntries(WORLD_PACKS.flatMap((p) => p.themes).map((t) => [t.id, t]));
+export { THEMES };
 
+/** The theme of a *loaded* region. Await `ensureRegion` (world/loader.ts) first. */
 export function themeOf(id: string): WorldTheme {
   const t = THEMES[id];
-  if (!t) throw new Error(`Unknown world theme "${id}"`);
+  if (!t) throw new Error(`World theme "${id}" is not loaded (its world pack has not been loaded)`);
   return t;
 }

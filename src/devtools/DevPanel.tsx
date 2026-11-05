@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import type { BossId, RegionId } from "@/shared/types";
-import { BOSS_ORDER } from "@/game/config/enemies";
+import { bossOrder } from "@/game/config/enemies";
 import { runtime } from "@/game/managers/runtime";
 import { WORLD_PACKS } from "@/game/world/worlds";
 import { t, useLang } from "@/i18n";
@@ -59,7 +59,7 @@ const CSS = `
 #stickman-devtools-root{position:fixed;z-index:99999;top:8px;inset-inline-end:8px;font:11px/1.35 ui-monospace,Menlo,monospace;color:#d8e6ff}
 #stickman-devtools-root .dt-tab{background:#10142b;border:1px solid #3a4272;color:#9fe8ff;padding:3px 8px;border-radius:6px;cursor:pointer;opacity:.85}
 #stickman-devtools-root .dt-tab.sb{background:#4a1020;border-color:#ff5c7a;color:#ffd0d8}
-#stickman-devtools-root .dt-panel{width:268px;max-height:calc(100vh - 16px);overflow:auto;background:rgba(10,12,28,.96);border:1px solid #3a4272;border-radius:8px;padding:8px}
+#stickman-devtools-root .dt-panel{width:268px;max-height:calc(100vh - 160px);overflow:auto;background:rgba(10,12,28,.96);border:1px solid #3a4272;border-radius:8px;padding:8px}
 #stickman-devtools-root h4{margin:8px 0 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#7c8bd0;border-bottom:1px solid #232a52}
 #stickman-devtools-root .row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:2px}
 #stickman-devtools-root button{background:#1b2146;color:#d8e6ff;border:1px solid #3a4272;border-radius:4px;padding:3px 6px;font:inherit;cursor:pointer}
@@ -216,38 +216,28 @@ export function DevPanel(): ReactElement {
           </div>
 
           <h4>{dt("Worlds")}</h4>
-          {WORLD_PACKS.map((pack) => {
-            const city = pack.regions.find((r) => !r.boss);
-            const arenas = pack.regions.filter((r) => r.boss);
-            return (
-              <div className="row" key={pack.id}>
-                {city && stageBtn(city.id)}
-                {arenas.map((a) => (
-                  <Btn
-                    key={a.id}
-                    on={snap.stageId === a.id}
-                    onClick={() => dev.goTo(a.id)}
-                    title="Enter the boss arena at its entrance without starting the fight"
-                  >
-                    {dt("Arena")}
-                  </Btn>
-                ))}
-                {arenas.map((a) => (
-                  <Btn
-                    key={`f${a.id}`}
-                    onClick={() => dev.fightBoss(a.boss!.id)}
-                    title="Teleport into the arena and start the fight"
-                  >
-                    {dt("Entrance")}
-                  </Btn>
-                ))}
-              </div>
-            );
-          })}
+          {WORLD_PACKS.map((pack) => (
+            <div className="row" key={pack.id}>
+              {stageBtn(pack.cityRegion)}
+              <Btn
+                on={snap.stageId === pack.arenaRegion}
+                onClick={() => dev.goTo(pack.arenaRegion)}
+                title="Enter the boss arena at its entrance without starting the fight"
+              >
+                {dt("Arena")}
+              </Btn>
+              <Btn
+                onClick={() => dev.fightBoss(pack.boss.id)}
+                title="Teleport into the arena and start the fight"
+              >
+                {dt("Entrance")}
+              </Btn>
+            </div>
+          ))}
 
           <h4>{dt("Boss Selection")}</h4>
           <div className="row">
-            {BOSS_ORDER.map((id) => (
+            {bossOrder().map((id) => (
               <Btn
                 key={id}
                 onClick={() => dev.fightBoss(id)}

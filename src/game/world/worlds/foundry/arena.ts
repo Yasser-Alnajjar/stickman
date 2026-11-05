@@ -255,7 +255,6 @@ export function buildEmpressArena(): RegionDef {
     scale: { hp: 1.7, atk: 1.45 },
     // slabs rise in a fan toward a high central slab, then drop away: the empress's own bridge of obsidian
     platforms: [[740, 830, 200], [990, 720, 190], [1240, 610, 260], [1590, 720, 190], [1850, 830, 200], [2120, 730, 190]],
-    back: { to: 'foundry', spawn: 'from_east' },
     decorate(b) {
       b.add('throne', 2140, 840, 300, 120);
       for (const x of [820, 1520]) b.add('alcove', x, 560, 180, 400);

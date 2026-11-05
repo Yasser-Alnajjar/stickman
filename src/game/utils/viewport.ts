@@ -3,6 +3,17 @@ import { MAX_VIEW_WIDTH, MIN_VIEW_WIDTH, VIEW_HEIGHT, WORLD_HEIGHT } from '@/sha
 let dpr = 1;
 export const getDpr = (): number => dpr;
 export const setDpr = (v: number): void => { dpr = v; };
+/**
+ * Resolution factor for the tiled backdrop canvases. Phones get ~40% fewer pixels (a theme is ~13 MB at full size,
+ * and the layers are heavily blurred by parallax anyway); desktops paint at full size.
+ */
+export function backdropQuality(): number {
+  try {
+    const small = Math.min(window.screen.width, window.screen.height) <= 820 || matchMedia('(pointer: coarse)').matches;
+    return small ? 0.6 : 1;
+  } catch { return 1; }
+}
+
 export const detectDpr = (): number => Math.min(2, Math.max(1, window.devicePixelRatio || 1));
 
 /**

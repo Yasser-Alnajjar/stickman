@@ -166,13 +166,13 @@ export const ALL_ATTACKS: Record<string, AttackDef> = { ...PLAYER_ATTACKS, ...EN
  * Every boss shares one attack set so the Boss class stays data-driven. The Warden's `boss_*` set is the
  * baseline; other bosses get scaled clones plus the extra moves only they use (volley/rain/pillars/...).
  */
-function bossSet(prefix: string, dmg: number, extras: Record<string, Partial<AttackDef>>): void {
+export function bossSet(prefix: string, dmg: number, extras: Record<string, Partial<AttackDef>>, tune: Record<string, Partial<AttackDef>> = {}): void {
   for (const base of ['swing1', 'swing2', 'swing3', 'slam', 'charge', 'leap', 'wave']) {
     const src = ENEMY_ATTACKS[`boss_${base}`];
     const id = `${prefix}_${base}`;
     ENEMY_ATTACKS[id] = {
-      ...src, id, damage: Math.round(src.damage * dmg),
-      chain: src.chain ? src.chain.replace('boss_', `${prefix}_`) : undefined,
+      ...src, ...tune[base], id, damage: Math.round((tune[base]?.damage ?? src.damage) * dmg),
+      chain: tune[base]?.chain ?? (src.chain ? src.chain.replace('boss_', `${prefix}_`) : undefined),
     };
   }
   const blank: AttackDef = {
@@ -182,16 +182,3 @@ function bossSet(prefix: string, dmg: number, extras: Record<string, Partial<Att
   for (const [k, o] of Object.entries(extras)) ENEMY_ATTACKS[`${prefix}_${k}`] = { ...blank, ...o, id: `${prefix}_${k}`, name: `${prefix} ${k}` };
 }
 
-bossSet('marrow', 1.3, {
-  volley: { damage: 14, knockback: { x: 420, y: -200 } },                 // harpoons
-  rain: { damage: 22, knockback: { x: 300, y: -420 }, hitStun: 600 },     // falling cargo
-});
-bossSet('ignis', 1.6, {
-  volley: { damage: 14, knockback: { x: 380, y: -200 } },                 // fireballs
-  pillars: { damage: 20, knockback: { x: 260, y: -520 }, hitStun: 600 },  // flame pillars
-  whirl: { damage: 16, knockback: { x: 520, y: -260 }, hitStun: 500 },    // spin
-  strike: {                                                               // teleport ambush
-    damage: 24, hitbox: { w: 170, h: 130, ox: 100, oy: -10 }, startup: 380, active: 130, recovery: 650,
-    knockback: { x: 700, y: -340 }, hitStun: 560, telegraph: true,
-  },
-});

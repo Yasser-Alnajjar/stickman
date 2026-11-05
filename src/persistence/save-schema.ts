@@ -3,9 +3,15 @@ import { ABILITIES, ABILITY_ORDER } from '@/game/config/abilities';
 import { ATTRIBUTES, ATTRIBUTE_ORDER, MAX_LEVEL, xpToNext } from '@/game/config/progression';
 import { ITEMS } from '@/game/config/items';
 import { QUESTS } from '@/game/config/quests';
-import { START_CHECKPOINT, createProfile, deriveStats } from '@/game/systems/progression/profile';
+import { createProfile, deriveStats, startCheckpoint } from '@/game/systems/progression/profile';
+import { allRegionIds } from '@/game/world/registry';
+import { qualifyLegacyCollected } from './legacy-v1';
 
-export const CURRENT_SAVE_VERSION = 1;
+/**
+ * v1 -> v2: pickups are stored per region (`region:pickupId`) and every region remembers its own last checkpoint.
+ * v2 also lifted the old 256/2048 list caps (nothing in a save is ever truncated).
+ */
+export const CURRENT_SAVE_VERSION = 2;
 
 export interface SaveFile {
   version: number;
@@ -15,9 +21,21 @@ export interface SaveFile {
 
 export type Migration = (raw: Record<string, unknown>) => Record<string, unknown>;
 /** migrations[n] upgrades a version-n save to version n+1. */
-export const MIGRATIONS: Record<number, Migration> = {};
+export const MIGRATIONS: Record<number, Migration> = {
+  1: (raw) => {
+    const profile = isObj(raw.profile) ? { ...raw.profile } : {};
+    profile.collected = qualifyLegacyCollected(profile.collected);
+    // The one checkpoint a v1 save had becomes that region's entry in the per-region table.
+    const cp = isObj(profile.checkpoint) ? profile.checkpoint : null;
+    profile.checkpoints = cp && typeof cp.region === 'string' && typeof cp.id === 'string'
+      ? { [cp.region]: { id: cp.id, x: cp.x, y: cp.y } }
+      : {};
+    return { ...raw, profile };
+  },
+};
 
-const REGIONS: RegionId[] = ['city', 'boss_arena', 'docks', 'tyrant_arena', 'foundry', 'empress_arena'];
+/** Longest id/key accepted from a save: guards against garbage, nowhere near any real id. */
+const MAX_KEY = 160;
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown, min: number, max: number, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
@@ -96,31 +114,46 @@ export function validateSave(raw: unknown): SaveResult {
   }
 
   const flags: Record<string, boolean> = {};
-  if (isObj(p.flags)) for (const [k, v] of Object.entries(p.flags)) if (v === true && k.length < 64) flags[k] = true;
+  if (isObj(p.flags)) for (const [k, v] of Object.entries(p.flags)) if (v === true && k.length < MAX_KEY) flags[k] = true;
 
-  const strArr = (v: unknown): string[] =>
-    Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string' && s.length < 64).slice(0, 256) : [];
+  // Progress lists are only de-duplicated and sanity-checked per entry: their length is never capped, so a longer
+  // campaign can never lose a kill, a chest or a boss on load.
+  const strList = (v: unknown): string[] =>
+    Array.isArray(v) ? [...new Set(v.filter((s): s is string => typeof s === 'string' && s.length > 0 && s.length < MAX_KEY))] : [];
 
-  let checkpoint: CheckpointRef = { ...START_CHECKPOINT };
-  if (isObj(p.checkpoint) && REGIONS.includes(p.checkpoint.region as RegionId) && typeof p.checkpoint.id === 'string') {
-    checkpoint = {
-      region: p.checkpoint.region as RegionId,
-      id: p.checkpoint.id.slice(0, 32),
-      x: num(p.checkpoint.x, 0, 20000, START_CHECKPOINT.x),
-      y: num(p.checkpoint.y, 0, 5000, START_CHECKPOINT.y),
-    };
+  const start = startCheckpoint();
+  const known = new Set(allRegionIds());
+  const cpOf = (v: unknown): { id: string; x: number; y: number } | null =>
+    isObj(v) && typeof v.id === 'string' && v.id.length > 0 && v.id.length < MAX_KEY
+      ? { id: v.id, x: num(v.x, 0, 40000, start.x), y: num(v.y, 0, 5000, start.y) }
+      : null;
+  // The active checkpoint must point at a region this build knows (otherwise there is nowhere to put the player);
+  // everything else is kept as is so progress for regions not registered right now survives a round trip.
+  let checkpoint: CheckpointRef = { ...start };
+  if (isObj(p.checkpoint) && typeof p.checkpoint.region === 'string' && known.has(p.checkpoint.region)) {
+    const c = cpOf(p.checkpoint);
+    if (c) checkpoint = { region: p.checkpoint.region, ...c };
   }
+  const checkpoints: ProfileData['checkpoints'] = {};
+  if (isObj(p.checkpoints)) {
+    for (const [region, v] of Object.entries(p.checkpoints)) {
+      const c = region.length < MAX_KEY ? cpOf(v) : null;
+      if (c) checkpoints[region] = c;
+    }
+  }
+  if (!checkpoints[checkpoint.region]) checkpoints[checkpoint.region] = { id: checkpoint.id, x: checkpoint.x, y: checkpoint.y };
 
   const stats = isObj(p.stats) ? p.stats : {};
   const profile: ProfileData = {
     level, xp, skillPoints, abilities, attributes,
     health: 0,
     quests,
-    defeatedBosses: strArr(p.defeatedBosses),
-    killedEnemies: Array.isArray(p.killedEnemies) ? [...new Set(p.killedEnemies.filter((s): s is string => typeof s === 'string' && s.length < 64))].slice(0, 2048) : [],
+    defeatedBosses: strList(p.defeatedBosses),
+    killedEnemies: strList(p.killedEnemies),
     flags,
-    collected: strArr(p.collected),
+    collected: strList(p.collected),
     checkpoint,
+    checkpoints,
     inventory: { items, gold: Math.floor(num(inv.gold, 0, 9_999_999, 0)) },
     stats: {
       kills: Math.floor(num(stats.kills, 0, 1e7, 0)),

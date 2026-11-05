@@ -23,19 +23,17 @@ import type { BackdropScene } from './BackdropScene';
 import { t } from '@/i18n';
 import { devFlags } from '@/devtools/flags';
 import { themeOf } from '@/game/world/themes';
+import { WORLD_PACKS } from '@/game/world/stores';
+import { packOfRegion } from '@/game/world/registry';
+import { ensureRegion, loadPack, neighbourhood, trimPacks } from '@/game/world/loader';
+import { collectedKey } from '@/persistence/legacy-v1';
 import { Ambience } from '@/game/world/Ambience';
 import type { WorldTheme } from '@/game/world/types';
 
-const REGION_TAGLINE: Partial<Record<RegionId, string>> = {
-  city: 'Find allies. Clear the streets. Open the Warden Gate.',
-  docks: 'Cargo, cranes and cutthroats. Marrow rules the pier.',
-  foundry: 'The forges never cool. Ignis awaits at the heart.',
-};
-
 export interface WorldInit {
   region: RegionId;
-  /** Named spawn point, explicit coordinates (checkpoint respawn), or undefined for default. */
-  spawn?: string | { x: number; y: number };
+  /** Named spawn point, explicit coordinates (checkpoint respawn), or undefined for default. `id` marks a lamp: arriving there makes it the active checkpoint. */
+  spawn?: string | { x: number; y: number; id?: string };
   respawn?: boolean;
 }
 
@@ -44,7 +42,7 @@ declare global {
 }
 
 export class WorldScene extends Phaser.Scene {
-  private init0: WorldInit = { region: 'city' };
+  private init0: WorldInit = { region: WORLD_PACKS[0].cityRegion };
   region!: RegionDef;
   player!: Player;
   fx!: Fx;
@@ -81,14 +79,17 @@ export class WorldScene extends Phaser.Scene {
   constructor() { super('World'); }
 
   init(data: WorldInit): void {
-    this.init0 = data ?? { region: 'city' };
+    this.init0 = data ?? { region: WORLD_PACKS[0].cityRegion };
   }
 
   /* ================================================================== create */
 
   create(): void {
     const region = REGIONS[this.init0.region];
+    if (!region) throw new Error(`Region "${this.init0.region}" is not loaded: start worlds through gameApi.startWorld`);
     this.region = region;
+    // Keep this world, its neighbours and world 1 in memory; drop every other world's level data.
+    trimPacks([...neighbourhood(region.id), ...(packOfRegion(session.profile.checkpoint.region) ? [packOfRegion(session.profile.checkpoint.region)!.id] : [])]);
     this.transitioning = false;
     this.lamps = []; this.pickups = []; this.secrets = []; this.zoneInside.clear();
     this.gateOpened = !!session.profile.flags.gate_open;
@@ -164,9 +165,11 @@ export class WorldScene extends Phaser.Scene {
     this.fx.setShake(this.shakeEnabled());
     bus.emit('region', region.name);
     if (!region.boss) {
-      bus.emit('banner', { title: t(region.name), subtitle: t(REGION_TAGLINE[region.id] ?? '') });
+      bus.emit('banner', { title: t(region.name), subtitle: t(packOfRegion(region.id)?.tagline ?? '') });
       this.time.delayedCall(3200, () => bus.emit('banner', null));
     }
+    // Warm up the world that follows this one so crossing the exit never waits on a download.
+    this.preloadNeighbour();
     bus.emit('state', 'playing');
     // The player died/restarted between the final kill and the screen: still show it.
     if (session.completionPending) this.scheduleCompletionScreen();
@@ -187,12 +190,16 @@ export class WorldScene extends Phaser.Scene {
     const s = this.init0.spawn;
     let pos: { x: number; y: number } | undefined;
     if (typeof s === 'string') {
-      pos = r.spawnPoints[s];
-      if (pos) session.profile.checkpoint = { region: r.id, id: s, x: pos.x, y: pos.y };
-    } else if (s) pos = s;
-    else {
+      pos = r.spawnPoints[s] ?? (s === 'entry' ? r.spawnPoints.from_west : undefined);
+      if (pos) session.setCheckpoint(r.id, s, pos.x, pos.y);
+    } else if (s) {
+      pos = { x: s.x, y: s.y };
+      if (s.id) session.setCheckpoint(r.id, s.id, s.x, s.y);
+    } else {
       const cp = session.profile.checkpoint;
+      const own = session.profile.checkpoints[r.id];
       if (cp.region === r.id) pos = { x: cp.x, y: cp.y };
+      else if (own) pos = { x: own.x, y: own.y };
     }
     return pos ?? { x: 160, y: r.groundY };
   }
@@ -212,7 +219,7 @@ export class WorldScene extends Phaser.Scene {
       this.lamps.push(l);
     }
     for (const p of region.pickups) {
-      if (session.profile.collected.includes(p.id)) continue;
+      if (session.profile.collected.includes(collectedKey(region.id, p.id))) continue;
       const pk = new Pickup(this, p);
       this.pickups.push(pk);
     }
@@ -271,6 +278,7 @@ export class WorldScene extends Phaser.Scene {
     this.fx.update(dt);
     this.ambience?.update(dt, this.cameras.main.worldView, this.time.now);
 
+    this.updateDrift(dt);
     this.updateInteractions(dt);
     this.updateZones();
     this.updateSecrets(dt);
@@ -289,6 +297,14 @@ export class WorldScene extends Phaser.Scene {
 
     if (this.player.cy > this.region.height + 300) this.rescuePlayer();
     if (this.debugG) this.drawDebug();
+  }
+
+  /** World currents (conveyors, gales): nudges the player along while they stand inside a drift band. */
+  private updateDrift(dt: number): void {
+    const bands = this.region.drift;
+    if (!bands || !this.player.alive || this.player.locked) return;
+    const px = this.player.cx;
+    for (const b of bands) if (px >= b.x && px <= b.x + b.w) this.player.arcade.position.x += b.vx * (dt / 1000);
   }
 
   /** Opens the Warden Gate the moment the keycard quest pays out its flag. */
@@ -325,7 +341,7 @@ export class WorldScene extends Phaser.Scene {
       const cp = session.profile.checkpoint;
       const isCurrent = cp.id === l.def.id && cp.region === this.region.id;
       if (!isCurrent) {
-        session.profile.checkpoint = { region: this.region.id, id: l.def.id, x: l.def.x, y: l.y };
+        session.setCheckpoint(this.region.id, l.def.id, l.def.x, l.y);
         this.lamps.forEach((o) => (o.active = o === l));
         session.toast(t('Checkpoint: {name}', { name: t(l.def.name) }), 'good');
         audio.play('checkpoint');
@@ -350,7 +366,7 @@ export class WorldScene extends Phaser.Scene {
     audio.play('pickup');
     this.fx.hitSparks(pk.x, pk.y - 20, 0, 10, true);
     this.fx.text(pk.x, pk.y - 40, t(ITEMS[pk.def.item].name), '#ffd24a', 18, 900);
-    if (!pk.def.id.startsWith('drop_')) session.profile.collected.push(pk.def.id);
+    if (!pk.def.id.startsWith('drop_')) session.profile.collected.push(collectedKey(this.region.id, pk.def.id));
     this.pickups = this.pickups.filter((x) => x !== pk);
     pk.destroy();
   }
@@ -389,7 +405,25 @@ export class WorldScene extends Phaser.Scene {
     audio.play('gate');
     const cam = this.cameras.main;
     cam.fadeOut(450, 0, 0, 0);
-    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.restart({ region, spawn } satisfies WorldInit));
+    // The destination world may still be downloading: the fade is the loading screen.
+    const ready = ensureRegion(region);
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      void ready.then(() => this.scene.restart({ region, spawn } satisfies WorldInit)).catch((e) => {
+        console.error('[world] could not load', region, e);
+        bus.emit('error', t('A gameplay error occurred. If the game misbehaves, pause and return to the menu.'));
+        this.transitioning = false;
+        this.player.locked = false;
+        cam.fadeIn(300, 0, 0, 0);
+      });
+    });
+  }
+
+  /** Builds the next world in the background while the player is in a safe place to wait (never blocks gameplay). */
+  private preloadNeighbour(): void {
+    const i = WORLD_PACKS.findIndex((p) => p.cityRegion === this.region.id || p.arenaRegion === this.region.id);
+    const next = this.region.boss ? WORLD_PACKS[i + 1] : WORLD_PACKS[i];
+    if (!next) return;
+    this.time.delayedCall(1500, () => { void loadPack(next.id); });
   }
 
   /* ------------------------------------------------------------------ boss arena */
