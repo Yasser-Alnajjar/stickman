@@ -586,3 +586,261 @@ When finished, report:
 9. Any remaining limitations or unfinished work.
 
 **Final acceptance criterion:** A player must be able to obtain weapons through real gameplay, equip and switch between them, use distinct normal attacks, combos and special abilities, upgrade them, save progress, close the game, reopen it, and continue with the same weapons and equipment state.
+
+# Additional Requirement: Currency, Enemy Loot & Weapon Shop Economy
+
+Extend the weapon system with a complete in-game currency and economy system.
+
+This is a core gameplay feature, not an optional cosmetic addition.
+
+The player must be able to earn currency by defeating enemies, collect physical coin drops, and spend accumulated currency to purchase weapons and upgrades.
+
+## 1. Currency System
+
+Introduce one primary in-game currency: Gold Coins.
+
+Requirements:
+
+- Display the player's current coin balance.
+- Persist the balance in the existing save profile.
+- Use the same currency across all 10 worlds.
+- Support earning and spending currency.
+- Never allow negative balances.
+- Use integer values only.
+- Update the UI immediately after earning or spending coins.
+
+Do not introduce multiple currencies unnecessarily.
+
+## 2. Enemy Coin Drops
+
+Enemies must drop physical coins when defeated.
+
+Requirements:
+
+- Normal enemies drop a small amount of coins.
+- Stronger enemies drop more coins.
+- Elite enemies drop higher rewards.
+- Bosses provide substantial coin rewards.
+- Coin rewards should scale gradually with world progression.
+- Different enemy types can have different drop values.
+- Add configurable drop chances and reward ranges.
+- Coins must visibly appear near the defeated enemy.
+- Add a pickup animation, sound effect, and visual feedback.
+- Support collecting multiple coins efficiently.
+- Coins should be collected through player contact or an appropriate pickup radius.
+
+### Important anti-exploit rules
+
+- A single enemy must not grant its coin reward more than once.
+- Coin rewards must be granted through the authoritative enemy defeat/reward flow.
+- Repeated collision events must not duplicate rewards.
+- Restarting a scene must not generate duplicate rewards.
+- Existing defeated-enemy persistence must be respected.
+- If the player dies or leaves a region, handle uncollected drops consistently.
+- Prevent farming unlimited coins by repeatedly triggering the same enemy's death event.
+
+The reward must be persisted safely.
+
+## 3. Additional Currency Sources
+
+Coins can also be awarded through:
+
+- Treasure chests.
+- Quest completion.
+- Boss victories.
+- Special optional challenges.
+
+Display the amount earned whenever the player receives a reward.
+
+Ensure all reward sources use one centralized currency transaction system.
+
+## 4. Weapon Shop
+
+Implement a proper Weapon Shop where players can purchase weapons using their collected coins.
+
+The shop should be accessible through the existing game menu or an appropriate shop location.
+
+A dedicated shop interface should display:
+
+- Available weapons.
+- Weapon icon and name.
+- Description.
+- Weapon category.
+- Damage.
+- Attack speed.
+- Range.
+- Special ability.
+- Upgrade level.
+- Price.
+- Current coin balance.
+- Purchase button.
+- Owned / Equipped / Locked status.
+
+### Purchase behavior
+
+- Players can purchase weapons only if they have enough coins.
+- Deduct the exact price after a successful purchase.
+- Add the purchased weapon to the player's inventory.
+- Never allow duplicate purchases of unique weapons.
+- Disable the purchase button when the player cannot afford the weapon.
+- Show a clear message when the player has insufficient coins.
+- Show a purchase confirmation and success feedback.
+- Update the coin balance immediately.
+- Make purchases atomic and persistent.
+
+## 5. Weapon Pricing and Rarity
+
+Create a balanced weapon economy.
+
+Not all weapons should cost the same amount.
+
+Use weapon rarity and combat strength to determine prices.
+
+Example pricing structure (adjust after balancing):
+
+| Weapon Tier |     Example Price |
+| ----------- | ----------------: |
+| Basic       |     100–250 coins |
+| Uncommon    |     300–600 coins |
+| Rare        |   700–1,200 coins |
+| Epic        | 1,500–2,500 coins |
+| Legendary   | 3,000–5,000 coins |
+
+These are starting balance guidelines, not mandatory final prices.
+
+### Important progression rules
+
+- Basic weapons should be affordable relatively early.
+- Strong weapons should require meaningful saving.
+- Legendary weapons should feel like valuable purchases.
+- Expensive weapons should provide distinctive gameplay advantages, not simply enormous damage.
+- Do not make free boss and quest rewards useless.
+- Some powerful weapons can be obtained through boss rewards, while others can be purchased.
+- Avoid making the player grind excessively to progress.
+- Every world must remain completable without requiring a specific purchased weapon.
+
+## 6. Shop Unlock Progression
+
+The weapon shop should expand its inventory as the campaign progresses.
+
+Requirements:
+
+- Some weapons are available from the beginning.
+- More powerful weapons become available after reaching specific worlds or defeating specific bosses.
+- Show locked weapons and their unlock requirements.
+- Do not reveal weapons that should remain undiscovered if that would spoil campaign content.
+- Shop inventory must be data-driven and configurable per World Pack.
+
+The shop must automatically support all 10 worlds.
+
+## 7. Weapon Upgrade Economy
+
+Integrate weapon upgrades with the same Gold Coins currency.
+
+Requirements:
+
+- Upgrades consume coins.
+- Upgrade prices increase gradually with weapon level.
+- Show the upgrade price before confirmation.
+- Show current and next-level statistics.
+- Prevent upgrades if the player cannot afford them.
+- Deduct currency only when the upgrade succeeds.
+- Prevent duplicate spending from repeated input events.
+- Persist the updated balance and weapon level together.
+
+Do not create a separate upgrade currency.
+
+## 8. Economy UI and Feedback
+
+Add a clear coin balance indicator in:
+
+- Main HUD.
+- Weapon Shop.
+- Inventory, where appropriate.
+- Reward notifications.
+
+Add feedback for:
+
+- Coins dropped.
+- Coins collected.
+- Total coins earned.
+- Weapon purchased.
+- Insufficient balance.
+- Weapon upgrade purchased.
+
+Use readable animations and sound effects without overwhelming gameplay.
+
+Support Arabic RTL and English LTR.
+
+## 9. Save System and Data Integrity
+
+Extend the existing save migration safely.
+
+Persist:
+
+- Current coin balance.
+- Purchased weapons.
+- Equipped weapon.
+- Weapon upgrade levels.
+- Any necessary reward-claim records.
+
+Requirements:
+
+- Existing players receive a reasonable starting coin balance.
+- Do not reset existing campaign progress.
+- Do not grant duplicate migration rewards.
+- Preserve all existing save data.
+- Ensure purchases and rewards survive closing and reopening the game.
+- Validate currency values during loading.
+- Prevent negative balances and invalid values.
+- Ensure save/load round trips preserve the complete economy state.
+
+## 10. Economy Balancing and Testing
+
+Create a documented economy balance table covering all 10 worlds.
+
+Include:
+
+- Average coins from normal enemies.
+- Elite enemy rewards.
+- Boss rewards.
+- Chest rewards.
+- Quest rewards.
+- Shop inventory unlocks.
+- Weapon prices.
+- Upgrade prices.
+
+Evaluate whether a player can reasonably afford weapons through normal gameplay without excessive grinding.
+
+Add tests for:
+
+- Enemy coin drops.
+- One-time reward claims.
+- Boss and quest currency rewards.
+- Chest currency rewards.
+- Coin pickup behavior.
+- Purchase success and failure.
+- Insufficient balance.
+- Duplicate purchase prevention.
+- Upgrade spending.
+- Save/load persistence.
+- Migration from existing saves.
+- Scene restart and death behavior.
+- Currency exploit prevention.
+
+## Final Economy Acceptance Criteria
+
+A player must be able to:
+
+1. Defeat enemies and see coins physically drop.
+2. Collect those coins during gameplay.
+3. Watch their balance increase.
+4. Open the Weapon Shop.
+5. Browse weapons with different prices and strengths.
+6. Save coins for expensive, powerful weapons.
+7. Purchase weapons and use them immediately.
+8. Upgrade weapons using the same currency.
+9. Continue earning and spending coins across all 10 worlds.
+10. Close and reopen the game without losing currency, purchases, or upgrades.
+
+**Important:** The economy must be balanced around actual gameplay rewards and prices. Do not implement arbitrary coin rewards or prices without considering the expected progression through all 10 worlds.
