@@ -7,7 +7,7 @@ export const CHUNK_WIDTH = 1600;
 
 export const DEPTH = {
   sky: 0, far: 1, mid: 2,
-  decor: 10, solids: 20, pickups: 28, npcs: 30, enemies: 40, boss: 42, player: 50,
+  decor: 10, solids: 20, pickups: 28, enemies: 40, boss: 42, player: 50,
   fx: 60, foreground: 70, secret: 80, hitbox: 90,
 } as const;
 

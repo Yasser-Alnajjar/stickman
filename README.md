@@ -29,7 +29,6 @@ Append `?debug` to the URL to expose `window.__stickman` (used by the e2e script
 | J, K, L | Light punch, kick, heavy punch. **J J J J = Jab → Cross → Roundhouse → Finisher** |
 | S / ↓ (hold) | Block. Block just before a hit lands for a **perfect block** |
 | 1 / 2 | Fire Punch / Lightning Dash (energy + cooldown) |
-| E | Talk to NPCs |
 | H / G | Health Tonic / Energy Cell |
 | Esc, P / Tab | Pause menu / Skills |
 
@@ -49,7 +48,7 @@ Append `?debug` to the URL to expose `window.__stickman` (used by the e2e script
   +50% damage, minions in phase 3, dedicated health bar, rewards and quest completion.
 - **World**: Neon Street (9600 px) plus the Warden Arena, streamed by 1600 px chunks, one-way ledges, a signal tower,
   a hidden rooftop room, checkpoints, a locked gate, region transitions with fades.
-- **NPCs & quests**: dialogue driven by quest state; kill / reach / collect / boss objectives, rewards, a 4-quest chain.
+- **Quests**: a central quest log in the pause menu; quests start and finish automatically in sequence (kill / reach / collect / boss objectives, rewards).
 - **Progression**: XP, levels 1-10, skill points, ability ranks, 5 attributes with real stat effects, inventory, gold.
 - **Saves**: IndexedDB (`manual` + `auto` slots), schema validation/sanitising, versioned migrations, corruption fallback,
   auto-save on lamps/level-ups/quests/region changes and every 60 s.
@@ -57,7 +56,7 @@ Append `?debug` to the URL to expose `window.__stickman` (used by the e2e script
   remembered and defaults to the browser language. Add a language by creating `src/i18n/<lang>.ts` (English text is the key,
   missing entries fall back to English; `npm test` fails if a string lacks an Arabic entry) and registering it in `src/i18n/index.ts`.
 - **UI**: main menu, HUD (bars, XP, ability cooldowns, quest tracker, boss bar, combo counter), pause menu with
-  inventory/skills/quests/settings/controls, dialogue, death screen, fullscreen, audio and screen-shake settings.
+  inventory/skills/quests/settings/controls, death screen, fullscreen, audio and screen-shake settings.
 
 ## Architecture
 
@@ -67,8 +66,8 @@ src/
   game/
     config/      all data: attacks, abilities, enemies, quests, regions, progression (no engine imports)
     systems/     combat (damage, combo, attack runner, hit resolution), abilities, progression (pure profile logic),
-                 quests (pure quest engine + dialogue), world (chunks, spawner)
-    entities/    Fighter base, Player (+transitions), Enemy/Boss, NPC, world objects
+                 quests (pure quest engine), world (chunks, spawner)
+    entities/    Fighter base, Player (+transitions), Enemy/Boss, world objects
     animations/  Pose model, procedural clips, StickmanRig renderer
     managers/    audio (WebAudio), fx (pooled particles/trails/text), session (profile owner), game-api (React facade)
     scenes/      Boot, Preload (generates all textures), Backdrop (parallax), MainMenu, World
@@ -96,7 +95,7 @@ Key decisions / trade-offs:
 
 - `npm test`: 38 unit tests (translations, progression, quests, damage, combos, save schema/migrations, state tables, level reachability).
 - `npm run e2e` and ad-hoc Playwright scripts in headless Chromium (WebGL via SwiftShader): movement, jump heights, combo chain
-  and single-hit guarantee, abilities/energy/cooldowns, block, NPC dialogue + quests, hidden room, gate opening, checkpoints,
+  and single-hit guarantee, abilities/energy/cooldowns, block, quest sequence + auto-complete, hidden room, gate opening, checkpoints,
   death/respawn, boss phases/summons/death/rewards, pause/save/reload/continue, resize at five viewport sizes.
 
 ## Known limitations

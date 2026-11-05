@@ -66,7 +66,6 @@ export function buildEmberFoundry(): RegionDef {
       sp('fd28', 'heavy', 9700, undefined, 90), sp('fd29', 'guard', 9900, undefined, 90), sp('fd30', 'archer', 10150, undefined, 80),
       sp('fd31', 'blade', 10300, undefined, 200), sp('fd32', 'blade', 10550, undefined, 160), sp('fd33', 'heavy', 10700, undefined, 80),
     ],
-    npcs: [{ npc: 'ash', x: 520 }],
     checkpoints: [
       { id: 'fd_gate', name: 'Foundry Gate Lamp', x: 640 }, { id: 'fd_forge', name: 'Forge Lamp', x: 2950 },
       { id: 'fd_catwalk', name: 'Catwalk Lamp', x: 5600 }, { id: 'fd_bridge', name: 'Bridge Lamp', x: 7900 },

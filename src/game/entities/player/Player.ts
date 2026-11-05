@@ -55,7 +55,6 @@ export class Player extends Fighter implements AbilityHost {
   stamina: number;
   energy: number;
   locked = false;
-  interactRequested = false;
   onDied?: () => void;
   /** Last frame the player stood on a one-way platform (set by the world's collider callback). */
   oneWayTouch = -1000;
@@ -166,7 +165,6 @@ export class Player extends Fighter implements AbilityHost {
 
   update(dt: number): void {
     const I = this.input.poll(this.locked || !this.alive);
-    if (I.interact) this.interactRequested = true;
     const a = this.arcade;
     this.sm.tick(dt);
     if (!this.alive) { this.updateDead(dt); return; }

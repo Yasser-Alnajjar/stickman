@@ -3,7 +3,7 @@ import { bus } from '@/game/events/bus';
 import {
   addItem, addXp, createProfile, deriveStats, removeItem, upgradeAbility, upgradeAttribute, itemCount,
 } from '@/game/systems/progression/profile';
-import { acceptQuest, applyQuestEvent, completeQuest } from '@/game/systems/quests/quest-engine';
+import { applyQuestEvent, settleQuests } from '@/game/systems/quests/quest-engine';
 import { QUESTS } from '@/game/config/quests';
 import { ITEMS } from '@/game/config/items';
 import { ABILITIES } from '@/game/config/abilities';
@@ -11,6 +11,7 @@ import { saveManager } from '@/persistence/save-manager';
 import { audio } from '@/game/managers/AudioManager';
 import { t } from '@/i18n';
 import { devFlags } from '@/devtools/flags';
+import { recordCompletion, shouldRecordCompletion } from '@/game/systems/campaign/campaign';
 
 export interface PlayerHooks {
   restoreHealth(amount: number): void;
@@ -28,14 +29,20 @@ class GameSession {
   profile: ProfileData = createProfile();
   hooks: PlayerHooks | null = null;
   private lastAutoSave = 0;
+  /** Completion has been recorded and saved but the completion screen has not been shown yet. */
+  completionPending = false;
 
   reset(): void {
+    this.completionPending = false;
     this.profile = createProfile();
+    this.settleQuests(true);
     this.emit();
   }
 
   load(profile: ProfileData): void {
+    this.completionPending = false;
     this.profile = profile;
+    this.settleQuests(true);
     this.emit();
   }
 
@@ -111,40 +118,40 @@ class GameSession {
   /* ---------- quests ---------- */
 
   questEvent(ev: QuestEvent): void {
-    const ready = applyQuestEvent(this.profile, ev);
-    for (const id of ready) {
-      const q = QUESTS[id];
-      if (q.autoComplete) this.completeQuest(id);
-      else {
-        this.toast(t('Quest ready to turn in: {name}', { name: t(q.title) }), 'good');
-        audio.play('quest');
+    const { objectives } = applyQuestEvent(this.profile, ev);
+    for (const { id, index } of objectives) {
+      const o = QUESTS[id].objectives[index];
+      this.toast(t('Objective complete: {name}', { name: t(o.label) }), 'good');
+    }
+    this.settleQuests(false);
+    this.emit();
+  }
+
+  /**
+   * Quests need no NPC: finished quests pay out at once and the next one starts. Called after every quest event
+   * and whenever a profile is loaded. `quiet` suppresses toasts (loading a save at the menu).
+   */
+  settleQuests(quiet: boolean): void {
+    const res = settleQuests(this.profile);
+    // Sounds are queued, so "quest complete", any level-up jingle and "new quest" play one after another.
+    for (const done of res.completed) {
+      const q = QUESTS[done.id];
+      if (!quiet) {
+        this.toast(t('Quest complete: {name}  (+{n} XP)', { name: t(q.title), n: done.xp }), 'good');
+        audio.playQueued('questComplete');
+      }
+      if (done.levelsGained > 0) {
+        if (!quiet) { this.toast(t('Level {n}!', { n: this.profile.level }), 'level'); audio.playQueued('levelUp'); }
+        this.hooks?.statsChanged(this.stats, true);
       }
     }
-    this.emit();
-  }
-
-  acceptQuest(id: string): void {
-    if (!acceptQuest(this.profile, id)) return;
-    this.toast(t('Quest accepted: {name}', { name: t(QUESTS[id].title) }), 'good');
-    audio.play('quest');
-    const entry = this.profile.quests[id];
-    if (entry.status === 'ready' && QUESTS[id].autoComplete) this.completeQuest(id);
-    else if (entry.status === 'ready') this.toast(t('Quest ready to turn in: {name}', { name: t(QUESTS[id].title) }), 'good');
-    this.emit();
-  }
-
-  completeQuest(id: string): void {
-    const done = completeQuest(this.profile, id);
-    if (!done) return;
-    this.toast(t('Quest complete: {name}  (+{n} XP)', { name: t(QUESTS[id].title), n: done.xp }), 'good');
-    audio.play('quest');
-    if (done.levelsGained > 0) {
-      this.toast(t('Level {n}!', { n: this.profile.level }), 'level');
-      audio.play('levelUp');
-      this.hooks?.statsChanged(this.stats, true);
+    if (!quiet) {
+      for (const id of res.started) {
+        this.toast(t('New quest: {name}', { name: t(QUESTS[id].title) }), 'info');
+        audio.playQueued('questNew');
+      }
     }
-    this.emit();
-    void this.autoSave(true);
+    if (res.completed.length) void this.autoSave(true);
   }
 
   registerKill(kind: EnemyKind): void {
@@ -167,6 +174,19 @@ class GameSession {
       bus.emit('error', t('Could not save the game (storage unavailable).'));
       return false;
     }
+  }
+
+  /**
+   * Call after a stage boss falls. If that clears every available stage and completion was never recorded,
+   * records it (idempotent via a profile flag), saves, and returns true. Returns false for repeat calls.
+   */
+  async recordCampaignCompletion(): Promise<boolean> {
+    if (!shouldRecordCompletion(this.profile)) return false;
+    recordCompletion(this.profile);
+    this.completionPending = true;
+    this.emit();
+    await this.save(true);
+    return true;
   }
 
   /** Throttled auto-save; `force` bypasses the throttle for milestone saves. */

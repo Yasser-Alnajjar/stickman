@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AR } from './ar';
 import { QUESTS } from '@/game/config/quests';
-import { NPCS } from '@/game/config/npcs';
 import { ABILITIES } from '@/game/config/abilities';
 import { ATTRIBUTES } from '@/game/config/progression';
 import { ITEMS } from '@/game/config/items';
@@ -30,10 +29,9 @@ describe('Arabic translations', () => {
     expect(missing(keys)).toEqual([]);
   });
 
-  it('covers all data-driven text (quests, NPCs, abilities, items, enemies, regions)', () => {
+  it('covers all data-driven text (quests, abilities, items, enemies, regions)', () => {
     const keys: string[] = [];
-    for (const q of Object.values(QUESTS)) keys.push(q.title, q.summary, ...q.offer, ...q.inProgress, ...q.turnIn, ...q.objectives.map((o) => o.label));
-    for (const n of Object.values(NPCS)) keys.push(n.name, ...n.idle);
+    for (const q of Object.values(QUESTS)) keys.push(q.title, q.summary, q.hint, ...q.objectives.map((o) => o.label));
     for (const a of Object.values(ABILITIES)) keys.push(a.name, a.description, ...a.rankNotes);
     for (const a of Object.values(ATTRIBUTES)) keys.push(a.name, a.description, a.perRank);
     for (const i of Object.values(ITEMS)) keys.push(i.name, i.description);

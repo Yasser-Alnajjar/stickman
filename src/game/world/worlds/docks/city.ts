@@ -64,7 +64,6 @@ export function buildRustDocks(): RegionDef {
       sp('dk28', 'guard', 9300, undefined, 110), sp('dk29', 'heavy', 9500, undefined, 80), sp('dk30', 'blade', 9750, undefined, 160),
       sp('dk31', 'guard', 9900, undefined, 100),
     ],
-    npcs: [{ npc: 'tess', x: 520 }],
     checkpoints: [
       { id: 'dock_gate', name: 'Dock Gate Lamp', x: 640 }, { id: 'dock_bays', name: 'Loading Bay Lamp', x: 2700 },
       { id: 'dock_crane', name: 'Crane Lamp', x: 4750 }, { id: 'dock_sheds', name: 'Shed Lamp', x: 6450 },

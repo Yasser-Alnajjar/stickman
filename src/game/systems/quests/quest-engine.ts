@@ -1,14 +1,38 @@
 import type { ItemId, ProfileData, QuestDef, QuestEvent, QuestProgress } from '@/shared/types';
-import { QUESTS } from '@/game/config/quests';
+import { QUESTS, QUEST_ORDER } from '@/game/config/quests';
 import { addItem, addXp, itemCount } from '@/game/systems/progression/profile';
+import { buildCampaign } from '@/game/systems/campaign/progress';
 
 export type QuestState = 'locked' | 'available' | 'active' | 'ready' | 'completed';
+
+/** Why a quest is still locked. */
+export type QuestLock = { kind: 'quest'; quest: string } | { kind: 'world'; world: string };
+
+/** Quests run as one story line in `QUEST_ORDER`; ids missing from the list follow in definition order. */
+export function questOrder(): string[] {
+  const listed = QUEST_ORDER.filter((id) => QUESTS[id]);
+  return [...listed, ...Object.keys(QUESTS).filter((id) => !listed.includes(id))];
+}
+
+export function prerequisite(id: string): string | undefined {
+  const order = questOrder();
+  const i = order.indexOf(id);
+  return i > 0 ? order[i - 1] : undefined;
+}
+
+/** Null when the quest can start: previous quest completed and its world reachable. */
+export function lockInfo(p: ProfileData, q: QuestDef): QuestLock | null {
+  const prev = prerequisite(q.id);
+  if (prev && p.quests[prev]?.status !== 'completed') return { kind: 'quest', quest: prev };
+  const world = buildCampaign(p).worlds.find((w) => w.packId === q.world);
+  if (world && world.status === 'locked') return { kind: 'world', world: q.world };
+  return null;
+}
 
 export function questState(p: ProfileData, q: QuestDef): QuestState {
   const prog = p.quests[q.id];
   if (prog) return prog.status;
-  const reqOk = (q.requires ?? []).every((r) => p.quests[r]?.status === 'completed');
-  return reqOk ? 'available' : 'locked';
+  return lockInfo(p, q) ? 'locked' : 'available';
 }
 
 const isDone = (q: QuestDef, prog: number[]): boolean =>
@@ -32,9 +56,17 @@ function refreshStatus(q: QuestDef, entry: QuestProgress): void {
   entry.status = isDone(q, entry.progress) ? 'ready' : 'active';
 }
 
-/** Applies a gameplay event to every active quest. Returns ids that became ready. */
-export function applyQuestEvent(p: ProfileData, ev: QuestEvent): string[] {
+export interface QuestEventResult {
+  /** Quests whose objectives are now all met. */
+  ready: string[];
+  /** Objectives that reached their target because of this event. */
+  objectives: { id: string; index: number }[];
+}
+
+/** Applies a gameplay event to every active quest. */
+export function applyQuestEvent(p: ProfileData, ev: QuestEvent): QuestEventResult {
   const ready: string[] = [];
+  const objectives: { id: string; index: number }[] = [];
   for (const id of Object.keys(p.quests)) {
     const entry = p.quests[id];
     const q = QUESTS[id];
@@ -55,6 +87,7 @@ export function applyQuestEvent(p: ProfileData, ev: QuestEvent): string[] {
         entry.progress[i] = o.count;
         changed = true;
       }
+      if ((entry.progress[i] ?? 0) >= o.count) objectives.push({ id, index: i });
     });
     if (changed) {
       const before = entry.status;
@@ -62,7 +95,7 @@ export function applyQuestEvent(p: ProfileData, ev: QuestEvent): string[] {
       if (before !== 'ready' && entry.status === 'ready') ready.push(id);
     }
   }
-  return ready;
+  return { ready, objectives };
 }
 
 export interface QuestCompletion { id: string; xp: number; levelsGained: number }
@@ -86,4 +119,56 @@ export function trackedQuests(p: ProfileData): { def: QuestDef; progress: QuestP
   return Object.values(QUESTS)
     .filter((q) => p.quests[q.id] && p.quests[q.id].status !== 'completed')
     .map((def) => ({ def, progress: p.quests[def.id] }));
+}
+
+/** Starts every quest whose lock has lifted. Returns the ids started, in story order. */
+export function syncQuests(p: ProfileData): string[] {
+  const started: string[] = [];
+  for (const id of questOrder()) if (!p.quests[id] && acceptQuest(p, id)) started.push(id);
+  return started;
+}
+
+export interface SettleResult { started: string[]; completed: QuestCompletion[] }
+
+/**
+ * Brings the quest log to a stable state without any NPC: pays out finished quests (including `ready` ones from
+ * older saves) and starts whatever that unlocked, repeating until nothing changes. Safe to call at any time.
+ */
+export function settleQuests(p: ProfileData): SettleResult {
+  const res: SettleResult = { started: [], completed: [] };
+  for (let guard = 0; guard < 64; guard++) {
+    let changed = false;
+    for (const id of questOrder()) {
+      const done = completeQuest(p, id);
+      if (done) { res.completed.push(done); changed = true; }
+    }
+    const started = syncQuests(p);
+    if (started.length) { res.started.push(...started); changed = true; }
+    if (!changed) break;
+  }
+  return res;
+}
+
+export interface QuestLogEntry {
+  def: QuestDef;
+  /** 1-based position in the quest line. */
+  number: number;
+  state: 'active' | 'locked' | 'completed';
+  progress: number[];
+  lock: QuestLock | null;
+  /** The quest to work on now: the first unfinished one in story order. */
+  current: boolean;
+}
+
+/** Everything the quest menu shows, derived from the profile. The UI does no quest logic of its own. */
+export function questLog(p: ProfileData): QuestLogEntry[] {
+  let currentTaken = false;
+  return questOrder().map((id, idx) => {
+    const def = QUESTS[id];
+    const entry = p.quests[id];
+    const state = entry ? (entry.status === 'completed' ? 'completed' : 'active') : 'locked';
+    const current = state === 'active' && !currentTaken;
+    if (current) currentTaken = true;
+    return { def, number: idx + 1, state, progress: entry?.progress ?? def.objectives.map(() => 0), lock: entry ? null : lockInfo(p, def), current };
+  });
 }

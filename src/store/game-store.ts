@@ -1,10 +1,10 @@
 import { create } from 'zustand';
-import type { BossView, DialogueView, HudSnapshot, ProfileData, ToastMsg } from '@/shared/types';
+import type { BossView, HudSnapshot, ProfileData, ToastMsg } from '@/shared/types';
 import type { PlayState } from '@/game/events/bus';
 import { createProfile } from '@/game/systems/progression/profile';
 import { DEFAULT_AUDIO, type AudioSettings, audio } from '@/game/managers/AudioManager';
 
-export type Panel = 'root' | 'inventory' | 'skills' | 'quests' | 'settings' | 'controls' | 'about';
+export type Panel = 'root' | 'inventory' | 'skills' | 'quests' | 'settings' | 'controls' | 'about' | 'campaign';
 
 export interface GameStore {
   play: PlayState;
@@ -15,9 +15,7 @@ export interface GameStore {
   hasSave: boolean;
   lastSavedAt: number;
   toasts: ToastMsg[];
-  dialogue: DialogueView | null;
   boss: BossView | null;
-  prompt: string | null;
   combo: number;
   banner: { title: string; subtitle?: string } | null;
   region: string;
@@ -48,9 +46,7 @@ export const useGameStore = create<GameStore>((set) => ({
   hasSave: false,
   lastSavedAt: 0,
   toasts: [],
-  dialogue: null,
   boss: null,
-  prompt: null,
   combo: 0,
   banner: null,
   region: '',

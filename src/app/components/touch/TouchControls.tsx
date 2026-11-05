@@ -143,14 +143,10 @@ function AbilityBtn({ index }: { index: 0 | 1 }): ReactElement | null {
 
 /** Touch overlay for landscape play. Everything it does goes through `touchInput` -> `PlayerInput`. */
 export function TouchControls(): ReactElement {
-  const prompt = useGameStore((s) => s.prompt);
-  const dialogue = useGameStore((s) => s.dialogue);
   useEffect(() => {
     installTouchSafety();
     return () => touchInput.releaseAll();
   }, []);
-  // Dialogue and prompts lock gameplay input; hide the pad so it cannot cover the dialogue box.
-  if (dialogue) return <></>;
   return (
     <div className="touch-layer" dir="ltr" data-testid="touch-controls" onContextMenu={noMenu}>
       <Joystick />
@@ -165,9 +161,6 @@ export function TouchControls(): ReactElement {
         <AbilityBtn index={0} />
         <AbilityBtn index={1} />
       </div>
-      {prompt && (
-        <TouchBtn action="interact" label={t('Interact')} cls="interact"><span className="ticon">💬</span><span className="tlbl">{t('Talk')}</span></TouchBtn>
-      )}
       <div className="tquick">
         <TouchBtn action="tonic" label={t('Health Tonic')} cls="mini"><span className="ticon">🧪</span></TouchBtn>
         <TouchBtn action="cell" label={t('Energy Cell')} cls="mini"><span className="ticon">🔋</span></TouchBtn>

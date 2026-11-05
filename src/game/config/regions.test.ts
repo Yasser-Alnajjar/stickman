@@ -54,11 +54,10 @@ describe.each(Object.values(REGIONS))('region $id layout', (region) => {
     expect(g[g.length - 1].x + g[g.length - 1].w).toBe(region.width);
   });
 
-  it('pickups, spawns, NPCs and checkpoints lie inside the region', () => {
+  it('pickups, spawns and checkpoints lie inside the region', () => {
     const inside = (x: number): boolean => x > 0 && x < region.width;
     region.pickups.forEach((p) => expect(inside(p.x)).toBe(true));
     region.spawns.forEach((p) => expect(inside(p.x)).toBe(true));
-    region.npcs.forEach((p) => expect(inside(p.x)).toBe(true));
     region.checkpoints.forEach((p) => expect(inside(p.x)).toBe(true));
   });
 

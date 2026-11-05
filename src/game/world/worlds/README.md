@@ -13,7 +13,7 @@ engine (`ChunkManager`, `BackdropScene`, `Ambience`, `WorldScene`) never mention
    - `bed` – animated strip behind the ground (water, lava) visible through gaps in the deck.
    - `ambient` – weather/particles (rain, embers, mist).
    - `stage` – boss entrance (`onStart`: shutters, surges, eruptions) and the seal `drawBarrier`.
-2. `worlds/crystal/city.ts` builds the city `RegionDef` with `RegionBuilder` (platform layout, spawns, pickups, NPCs,
+2. `worlds/crystal/city.ts` builds the city `RegionDef` with `RegionBuilder` (platform layout, spawns, pickups,
    checkpoints). `worlds/crystal/arena.ts` builds the arena with `arenaRegion({... platforms, decorate })` and its own
    theme (spread the city theme and override what differs, but give the arena its own backdrop and decor).
 3. Add the new region ids to `RegionId` (`shared/types`) and `REGIONS` list in `persistence/save-schema.ts`.

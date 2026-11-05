@@ -128,7 +128,7 @@ export function arenaRegion(c: ArenaCfg): RegionDef {
   }
   return {
     id: c.id, name: c.name, width: W, height: 1080, groundY: GROUND_Y, theme: c.theme, music: 'none',
-    solids: b.solids, oneWays: b.oneWays, decor: b.decor, secrets: [], spawns: [], npcs: [],
+    solids: b.solids, oneWays: b.oneWays, decor: b.decor, secrets: [], spawns: [],
     checkpoints: [{ id: c.lampId, name: c.lampName, x: 240 }],
     pickups: [], zones,
     spawnPoints: { entry: { x: 330, y: GROUND_Y }, from_east: { x: W - 340, y: GROUND_Y } },

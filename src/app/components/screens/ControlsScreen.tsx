@@ -19,7 +19,6 @@ const ROWS: [string, string][] = [
   ['S  ·  ↓ (hold)', 'Block. Tap just before a hit lands for a PERFECT block'],
   ['1', 'Fire Punch (energy)'],
   ['2', 'Lightning Dash (energy)'],
-  ['E', 'Talk / advance dialogue'],
   ['H  ·  G', 'Use Health Tonic  ·  Energy Cell'],
   ['Esc  ·  P  ·  Tab', 'Pause menu  ·  Skills'],
   ['F3', 'Show hitboxes (debug)'],

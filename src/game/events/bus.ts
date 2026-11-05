@@ -1,5 +1,5 @@
 import type {
-  BossView, DialogueView, HudSnapshot, ProfileData, SfxName, ToastMsg,
+  BossView, HudSnapshot, ProfileData, SfxName, ToastMsg,
 } from '@/shared/types';
 
 type Handler<T> = (payload: T) => void;
@@ -32,15 +32,13 @@ export class TypedEmitter<E extends { [K in keyof E]: unknown }> {
   }
 }
 
-export type PlayState = 'loading' | 'menu' | 'playing' | 'paused' | 'dead';
+export type PlayState = 'loading' | 'menu' | 'playing' | 'paused' | 'dead' | 'complete';
 
 export interface GameEvents {
   'hud:update': HudSnapshot;
   'profile:changed': ProfileData;
   'toast': Omit<ToastMsg, 'id'>;
-  'dialogue:update': DialogueView | null;
   'boss:update': BossView | null;
-  'prompt': string | null;
   'combo': number;
   'region': string;
   'state': PlayState;

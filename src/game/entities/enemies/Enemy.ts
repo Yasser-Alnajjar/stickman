@@ -13,6 +13,7 @@ import { makePose, type Pose } from '@/game/animations/pose';
 import { poseAttack, poseDead, poseDodge, poseHurt, poseIdle, poseMove, posePointing, poseStun } from '@/game/animations/clips';
 import { audio } from '@/game/managers/AudioManager';
 import { session } from '@/game/managers/session';
+import { devFlags } from '@/devtools/flags';
 import { t } from '@/i18n';
 
 export type { EnemyState };
@@ -335,6 +336,7 @@ export class Enemy extends Fighter {
       comboScale: spec.comboScale, multiplier: spec.damageMult * (absorbs ? 1 - this.def.guard! : breaks ? 0.7 : 1), block: 'none', blockFactor: 1, vulnerable: this.vulnerable,
     });
     this.health = Math.max(0, this.health - dmg);
+    if (__DEV_TOOLS__ && devFlags.god && attacker.team === 'player') { devFlags.sandbox = true; this.health = 0; } // Super Mode: any hit kills
     this.rig.flash(90);
     if (spec.burn) this.applyBurn(spec.burn.dps, spec.burn.duration);
     audio.play('enemyHit');

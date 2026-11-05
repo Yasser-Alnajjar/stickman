@@ -12,7 +12,7 @@ export type Element = 'physical' | 'fire' | 'lightning';
 export type SfxName =
   | 'step' | 'jump' | 'land' | 'punch' | 'kick' | 'heavy' | 'whoosh' | 'hit' | 'hitHeavy' | 'block'
   | 'perfect' | 'dash' | 'dodge' | 'fire' | 'zap' | 'enemyHit' | 'enemyDie' | 'hurt' | 'death'
-  | 'pickup' | 'levelUp' | 'checkpoint' | 'quest' | 'ui' | 'uiBack' | 'telegraph' | 'slam' | 'roar' | 'gate';
+  | 'pickup' | 'levelUp' | 'checkpoint' | 'quest' | 'questComplete' | 'questNew' | 'ui' | 'uiBack' | 'telegraph' | 'slam' | 'roar' | 'gate';
 export type MusicTrack = 'city' | 'boss' | 'none';
 
 export interface Rect { x: number; y: number; w: number; h: number }
@@ -82,18 +82,16 @@ export interface QuestReward {
 export interface QuestDef {
   id: string;
   title: string;
-  giver: string;
   summary: string;
-  requires?: string[];
+  /** World pack id this quest belongs to (see world/worlds). The quest cannot unlock while that world is locked. */
+  world: string;
   objectives: QuestObjective[];
   reward: QuestReward;
-  /** Completes (and pays out) automatically when objectives are done, no turn-in. */
-  autoComplete?: boolean;
-  offer: string[];
-  inProgress: string[];
-  turnIn: string[];
+  /** Short tip shown in the quest log. */
+  hint: string;
 }
 
+/** `ready` only exists transiently (and in old saves, which are paid out on load): quests complete automatically. */
 export type QuestStatus = 'active' | 'ready' | 'completed';
 export interface QuestProgress { status: QuestStatus; progress: number[] }
 
@@ -141,13 +139,6 @@ export interface HudSnapshot {
   stamina: number; maxStamina: number;
   energy: number; maxEnergy: number;
   cooldowns: Record<AbilityId, { remaining: number; total: number }>;
-}
-
-export interface DialogueView {
-  npcName: string;
-  text: string;
-  choices: string[] | null;
-  hasNext: boolean;
 }
 
 export interface BossView { name: string; health: number; maxHealth: number; phase: number }

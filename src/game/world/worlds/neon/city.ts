@@ -96,7 +96,6 @@ export function buildNeonStreet(): RegionDef {
       { id: 'e27', kind: 'fast', x: 8900, patrol: 200 },
       { id: 'e28', kind: 'archer', x: 8250, y: 760, patrol: 100 },
     ],
-    npcs: [{ npc: 'ren', x: 520 }, { npc: 'mira', x: 3520 }, { npc: 'juno', x: 3960 }],
     checkpoints: [
       { id: 'plaza', name: 'Plaza Lamp', x: 840 },
       { id: 'market', name: 'Market Lamp', x: 3330 },

@@ -14,7 +14,6 @@ export interface Intent {
   heavy: boolean;
   ability1: boolean;
   ability2: boolean;
-  interact: boolean;
   tonic: boolean;
   cell: boolean;
 }
@@ -22,11 +21,11 @@ export interface Intent {
 export const neutralIntent = (): Intent => ({
   moveX: 0, jumpPressed: false, jumpHeld: false, dashPressed: false, dodgePressed: false, blockHeld: false,
   downHeld: false, light: false, kick: false, heavy: false, ability1: false, ability2: false,
-  interact: false, tonic: false, cell: false,
+  tonic: false, cell: false,
 });
 
 type KeyMap = Record<'left' | 'right' | 'a' | 'd' | 'up' | 'w' | 'space' | 'shift' | 'x' | 'c' | 'down' | 's'
-  | 'j' | 'k' | 'l' | 'one' | 'two' | 'e' | 'h' | 'g', Phaser.Input.Keyboard.Key>;
+  | 'j' | 'k' | 'l' | 'one' | 'two' | 'h' | 'g', Phaser.Input.Keyboard.Key>;
 
 /** Reads the keyboard (and the virtual touch controls) into one reusable intent struct. */
 export class PlayerInput {
@@ -44,7 +43,7 @@ export class PlayerInput {
     this.keys = kb.addKeys({
       left: K.LEFT, right: K.RIGHT, a: K.A, d: K.D, up: K.UP, w: K.W, space: K.SPACE, shift: K.SHIFT,
       x: K.X, c: K.C, down: K.DOWN, s: K.S, j: K.J, k: K.K, l: K.L, one: K.ONE, two: K.TWO,
-      e: K.E, h: K.H, g: K.G,
+      h: K.H, g: K.G,
     }, true) as KeyMap;
     for (const name of Object.keys(this.keys) as (keyof KeyMap)[]) this.keys[name].on('down', () => this.edge.add(name));
   }
@@ -55,7 +54,7 @@ export class PlayerInput {
     return hit;
   }
 
-  /** `locked` zeroes gameplay input (dialogue, death) but still tracks edge state so presses don't leak. */
+  /** `locked` zeroes gameplay input (death) but still tracks edge state so presses don't leak. */
   poll(locked: boolean): Intent {
     const k = this.keys, I = this.intent;
     const T = touchInput;
@@ -63,12 +62,11 @@ export class PlayerInput {
     const dash = this.took('shift') || T.take('dash'), dodge = this.took('x', 'c') || T.take('dodge');
     const light = this.took('j') || T.take('light'), kick = this.took('k') || T.take('kick'), heavy = this.took('l') || T.take('heavy');
     const a1 = this.took('one') || T.take('ability1'), a2 = this.took('two') || T.take('ability2');
-    const interact = this.took('e') || T.take('interact'), tonic = this.took('h') || T.take('tonic'), cell = this.took('g') || T.take('cell');
+    const tonic = this.took('h') || T.take('tonic'), cell = this.took('g') || T.take('cell');
     this.edge.clear();
     T.dropEdges();
     if (locked) {
       Object.assign(I, neutralIntent());
-      I.interact = interact;
       return I;
     }
     const left = k.left.isDown || k.a.isDown || T.moveX < 0, right = k.right.isDown || k.d.isDown || T.moveX > 0;
@@ -81,7 +79,7 @@ export class PlayerInput {
     I.downHeld = I.blockHeld;
     I.light = light; I.kick = kick; I.heavy = heavy;
     I.ability1 = a1; I.ability2 = a2;
-    I.interact = interact; I.tonic = tonic; I.cell = cell;
+    I.tonic = tonic; I.cell = cell;
     return I;
   }
 

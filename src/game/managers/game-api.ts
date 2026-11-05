@@ -43,6 +43,16 @@ export const gameApi = {
     return true;
   },
 
+  /** Starts a world picked from the campaign map. Loads the latest save first so no progress is lost or reset. */
+  async playWorld(region: RegionId, spawn?: string): Promise<void> {
+    audio.unlock();
+    const latest = await saveManager.latest();
+    if (latest) session.load(latest.save.profile);
+    else session.reset();
+    audio.play("ui");
+    this.startWorld({ region, spawn });
+  },
+
   startWorld(init: {
     region: RegionId;
     spawn?: string | { x: number; y: number };
@@ -58,7 +68,6 @@ export const gameApi = {
   pause(): void {
     const game = runtime.game;
     if (!game || !runtime.world || !game.scene.isActive("World")) return;
-    if (runtime.world.dialogue.active) return;
     game.scene.pause("World");
     audio.play("ui");
     bus.emit("state", "paused");
@@ -91,6 +100,17 @@ export const gameApi = {
     bus.emit("state", "menu");
   },
 
+  /** Shows the localized campaign-complete screen. The save already happened in session.recordCampaignCompletion. */
+  showCompletion(): void {
+    const game = runtime.game;
+    if (!game || !session.completionPending) return;
+    session.completionPending = false;
+    if (game.scene.isActive("World")) game.scene.pause("World");
+    runtime.world?.player.input.reset();
+    bus.emit("state", "complete");
+    audio.play("quest");
+  },
+
   respawn(): void {
     const world = runtime.world;
     if (!world) return;
@@ -103,15 +123,6 @@ export const gameApi = {
       spawn: { x: cp.x, y: cp.y },
       respawn: true,
     });
-  },
-
-  /* ------------------------------------------------ dialogue */
-
-  dialogueAdvance(): void {
-    runtime.world?.dialogue.advance();
-  },
-  dialogueChoose(i: number): void {
-    runtime.world?.dialogue.choose(i);
   },
 
   /* ------------------------------------------------ progression */

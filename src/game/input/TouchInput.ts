@@ -4,10 +4,10 @@
  */
 export type TouchAction =
   | 'jump' | 'dash' | 'dodge' | 'block' | 'light' | 'kick' | 'heavy'
-  | 'ability1' | 'ability2' | 'interact' | 'tonic' | 'cell';
+  | 'ability1' | 'ability2' | 'tonic' | 'cell';
 
 /** Actions that fire once per press (edge) in addition to being "held" while the finger is down. */
-const EDGE: ReadonlySet<TouchAction> = new Set(['jump', 'dash', 'dodge', 'light', 'kick', 'heavy', 'ability1', 'ability2', 'interact', 'tonic', 'cell']);
+const EDGE: ReadonlySet<TouchAction> = new Set(['jump', 'dash', 'dodge', 'light', 'kick', 'heavy', 'ability1', 'ability2', 'tonic', 'cell']);
 
 /** Joystick: normalised offset -> digital move + block (pull down). Dead zone avoids drift. */
 export function joystickAxes(dx: number, dy: number, radius: number): { moveX: -1 | 0 | 1; down: boolean } {

@@ -10,6 +10,7 @@ import { MainMenu } from '@/app/components/menus/MainMenu';
 import { PauseMenu } from '@/app/components/menus/PauseMenu';
 import { Hud } from '@/app/components/hud/Hud';
 import { LoadingScreen } from '@/app/components/screens/LoadingScreen';
+import { CompletionScreen } from '@/app/components/screens/CompletionScreen';
 import { DeathScreen } from '@/app/components/screens/DeathScreen';
 import { ErrorBanner } from '@/app/components/screens/ErrorBanner';
 import { TouchControls } from '@/app/components/touch/TouchControls';
@@ -37,6 +38,7 @@ function Overlays({ play }: { play: string }): ReactElement {
       {play === 'menu' && <MainMenu />}
       {play === 'paused' && <PauseMenu />}
       {play === 'dead' && <DeathScreen />}
+      {play === 'complete' && <CompletionScreen />}
       <ErrorBanner />
     </>
   );

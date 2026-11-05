@@ -8,7 +8,6 @@ export type DecorKind = string;
 export interface DecorDef { id: string; kind: DecorKind; x: number; y: number; w: number; h: number; seed: number; text?: string; /** `front` decor paints over the actors */ layer?: 'front' }
 export interface SecretDef { id: string; x: number; y: number; w: number; h: number }
 export interface SpawnDef { id: string; kind: Exclude<EnemyKind, 'boss'>; x: number; y?: number; patrol: number }
-export interface NpcPlacement { npc: string; x: number }
 export interface CheckpointDef { id: string; name: string; x: number }
 export interface PickupDef { id: string; item: ItemId; qty: number; x: number; y: number; chest?: boolean }
 export interface ZoneDef {
@@ -31,7 +30,6 @@ export interface RegionDef {
   decor: DecorDef[];
   secrets: SecretDef[];
   spawns: SpawnDef[];
-  npcs: NpcPlacement[];
   checkpoints: CheckpointDef[];
   pickups: PickupDef[];
   zones: ZoneDef[];

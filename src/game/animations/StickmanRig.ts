@@ -308,16 +308,6 @@ export class StickmanRig {
       g.fillStyle(accent, a);
       for (let i = -1; i <= 1; i++) g.fillTriangle(hx + i * hr * 0.7 - hr * 0.3, hy - hr * 0.9, hx + i * hr * 0.7 + hr * 0.3, hy - hr * 0.9, hx + i * hr * 0.7, hy - hr * (i === 0 ? 2.5 : 2));
       g.fillStyle(0xff7a2a, a * 0.9).fillCircle(xs[A_HA], ys[A_HA], 7 * s);
-    } else if (acc === 'elder') {
-      g.lineStyle(3, 0xffffff, a);
-      g.lineBetween(hx + F * hr * 0.2, hy + hr * 0.7, hx + F * hr * 0.35, hy + hr * 1.9); // beard
-      g.lineStyle(3, 0x8a6a3a, a);
-      g.lineBetween(xs[B_HA], ys[B_HA] - 34 * s, xs[B_HA], ys[B_HA] + 38 * s); // cane
-    } else if (acc === 'guard') {
-      g.fillStyle(accent, a);
-      g.fillRect(hx - hr * 1.05, hy - hr * 1.05, hr * 2.1, hr * 0.9);
-      g.lineStyle(3, 0xcfd6ff, a);
-      g.lineBetween(xs[B_HA] + F * 4, ys[B_HA] - 46 * s, xs[B_HA] + F * 4, ys[B_HA] + 30 * s); // spear
     }
   }
 

@@ -4,6 +4,10 @@ export interface AudioSettings { master: number; music: number; sfx: number; mut
 const STORAGE_KEY = 'stickman.audio.v1';
 export const DEFAULT_AUDIO: AudioSettings = { master: 0.8, music: 0.5, sfx: 0.8, muted: false };
 
+/** Approximate length in seconds of sounds that get queued back to back, so sequences never overlap. */
+const SFX_LENGTH: Partial<Record<SfxName, number>> = { questComplete: 0.85, questNew: 0.55, levelUp: 0.65 };
+const QUEUE_GAP = 0.12;
+
 const midi = (n: number): number => 440 * Math.pow(2, (n - 69) / 12);
 
 interface Pattern { bpm: number; bass: (number | null)[]; lead: (number | null)[]; kick: number[]; snare: number[]; hat: number[]; root: number }
@@ -36,6 +40,8 @@ class AudioManager {
   private nextStepTime = 0;
   private timer: number | null = null;
   private lastPlayed = new Map<SfxName, number>();
+  /** AudioContext time at which the queued-sound lane is free again. */
+  private queueFree = 0;
   private unlockHandler = (): void => { this.unlock(); };
 
   constructor() {
@@ -202,14 +208,28 @@ class AudioManager {
 
   /* ---------------------------- sfx ---------------------------- */
 
-  play(name: SfxName): void {
+  /**
+   * Plays a sound after everything already queued has finished (jingles such as quest complete -> new quest).
+   * Respects mute, volume and the suspended context like `play`.
+   */
+  playQueued(name: SfxName): void {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running' || this.settings.muted) return;
+    const start = Math.max(ctx.currentTime, this.queueFree);
+    this.queueFree = start + (SFX_LENGTH[name] ?? 0.3) + QUEUE_GAP;
+    this.play(name, start - ctx.currentTime);
+  }
+
+  /** `delay` (seconds) schedules the sound ahead on the audio clock. */
+  play(name: SfxName, delay = 0): void {
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running' || this.settings.muted) return;
     const now = ctx.currentTime;
+    const t = now + delay;
     const last = this.lastPlayed.get(name) ?? 0;
-    if (now - last < 0.035) return; // voice limiting against spam
-    this.lastPlayed.set(name, now);
-    const d = this.sfxGain, t = now;
+    if (t - last < 0.035) return; // voice limiting against spam
+    this.lastPlayed.set(name, t);
+    const d = this.sfxGain;
     const r = (a: number, b: number): number => a + Math.random() * (b - a);
     switch (name) {
       case 'step': this.noiseHit(t, 0.05, 0.08, r(500, 900), 'lowpass', d); break;
@@ -235,6 +255,17 @@ class AudioManager {
       case 'levelUp': [523, 659, 784, 1047].forEach((f, i) => this.tone(f, t + i * 0.09, 0.3, 'triangle', 0.3, d, 6000)); break;
       case 'checkpoint': [392, 523, 659].forEach((f, i) => this.tone(f, t + i * 0.1, 0.5, 'sine', 0.25, d, 5000)); break;
       case 'quest': [440, 554, 659].forEach((f, i) => this.tone(f, t + i * 0.08, 0.3, 'square', 0.1, d, 3000)); break;
+      case 'questComplete': // bright rising arpeggio that lands on a held major chord, plus a sparkle
+        [523, 659, 784, 1047].forEach((f, i) => this.tone(f, t + i * 0.07, 0.16, 'triangle', 0.26, d, 7000));
+        [523, 659, 784, 1047].forEach((f) => this.tone(f, t + 0.3, 0.5, 'sine', 0.17, d, 6000));
+        this.tone(2093, t + 0.3, 0.35, 'sine', 0.1, d, 9000);
+        break;
+      case 'questNew': // two-note "new message" chime, softer and lower, with a paper-scroll rustle
+        this.noiseHit(t, 0.07, 0.07, 3500, 'highpass', d);
+        this.tone(659, t + 0.02, 0.22, 'sine', 0.26, d, 5000);
+        this.tone(988, t + 0.17, 0.34, 'sine', 0.26, d, 5000);
+        this.tone(1976, t + 0.17, 0.2, 'triangle', 0.06, d, 8000);
+        break;
       case 'ui': this.tone(660, t, 0.06, 'square', 0.08, d, 3000); break;
       case 'uiBack': this.tone(440, t, 0.07, 'square', 0.08, d, 3000); break;
       case 'telegraph': this.tone(220, t, 0.35, 'sawtooth', 0.14, d, 1400, 880); break;

@@ -2,23 +2,21 @@ import Phaser from 'phaser';
 import type { HudSnapshot, ItemId, RegionId } from '@/shared/types';
 import { DEPTH, GRAVITY } from '@/shared/constants';
 import { REGIONS, type RegionDef, type ZoneDef } from '@/game/config/regions';
-import { NPCS } from '@/game/config/npcs';
 import { ITEMS } from '@/game/config/items';
 import { ABILITY_ORDER } from '@/game/config/abilities';
 import { Fx } from '@/game/managers/Fx';
 import { audio } from '@/game/managers/AudioManager';
 import { session } from '@/game/managers/session';
 import { runtime } from '@/game/managers/runtime';
+import { gameApi } from '@/game/managers/game-api';
 import { bus } from '@/game/events/bus';
 import { GameClock } from '@/game/systems/combat/GameClock';
 import { CombatSystem } from '@/game/systems/combat/CombatSystem';
 import { ChunkManager } from '@/game/systems/world/ChunkManager';
 import { EnemySpawner } from '@/game/systems/world/Spawner';
 import type { WorldContext } from '@/game/systems/world/context';
-import { DialogueManager } from '@/game/systems/quests/DialogueManager';
 import { Player } from '@/game/entities/player/Player';
 import { Boss } from '@/game/entities/enemies/Boss';
-import { Npc } from '@/game/entities/npcs/Npc';
 import { CheckpointLamp, Pickup } from '@/game/entities/world/WorldObjects';
 import { computeZoom } from '@/game/utils/viewport';
 import type { BackdropScene } from './BackdropScene';
@@ -54,13 +52,11 @@ export class WorldScene extends Phaser.Scene {
   combat!: CombatSystem;
   chunks!: ChunkManager;
   spawner!: EnemySpawner;
-  dialogue = new DialogueManager();
   boss: Boss | null = null;
   theme!: WorldTheme;
   private ambience: Ambience | null = null;
 
   private ctx!: WorldContext;
-  private npcs: Npc[] = [];
   private lamps: CheckpointLamp[] = [];
   private pickups: Pickup[] = [];
   private secrets: { rect: Phaser.Geom.Rectangle; g: Phaser.GameObjects.Graphics; alpha: number }[] = [];
@@ -71,7 +67,6 @@ export class WorldScene extends Phaser.Scene {
   private lastHud = '';
   private chunkTimer = 0;
   private autosaveTimer = 0;
-  private lastPrompt: string | null = null;
   private transitioning = false;
   private barrier: Phaser.GameObjects.Rectangle | null = null;
   private barrierG: Phaser.GameObjects.Graphics | null = null;
@@ -95,7 +90,7 @@ export class WorldScene extends Phaser.Scene {
     const region = REGIONS[this.init0.region];
     this.region = region;
     this.transitioning = false;
-    this.npcs = []; this.lamps = []; this.pickups = []; this.secrets = []; this.zoneInside.clear();
+    this.lamps = []; this.pickups = []; this.secrets = []; this.zoneInside.clear();
     this.gateOpened = !!session.profile.flags.gate_open;
     this.unsubs = [];
     this.boss = null; this.barrier = null; this.barrierG = null;
@@ -173,8 +168,9 @@ export class WorldScene extends Phaser.Scene {
       this.time.delayedCall(3200, () => bus.emit('banner', null));
     }
     bus.emit('state', 'playing');
+    // The player died/restarted between the final kill and the screen: still show it.
+    if (session.completionPending) this.scheduleCompletionScreen();
 
-    this.dialogue.onClose = () => { this.player.locked = false; };
     this.input.keyboard?.on('keydown-F3', this.toggleDebug, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
     runtime.world = this;
@@ -210,7 +206,6 @@ export class WorldScene extends Phaser.Scene {
   /* ------------------------------------------------------------------ entities */
 
   private buildEntities(region: RegionDef): void {
-    for (const n of region.npcs) this.npcs.push(new Npc(this, NPCS[n.npc], n.x, region.groundY));
     for (const c of region.checkpoints) {
       const l = new CheckpointLamp(this, c, region.groundY);
       l.active = session.profile.checkpoint.id === c.id && session.profile.checkpoint.region === region.id;
@@ -264,11 +259,13 @@ export class WorldScene extends Phaser.Scene {
     const dt = this.clock.tick(delta);
     session.profile.stats.playTimeMs += dt;
 
-    if (__DEV_TOOLS__ && devFlags.infiniteHealth) this.player.health = this.player.maxHealth;
+    if (__DEV_TOOLS__ && (devFlags.infiniteHealth || devFlags.god)) this.player.health = this.player.maxHealth;
+    if (__DEV_TOOLS__ && devFlags.god) this.refillBars();
     this.player.update(dt);
+    if (__DEV_TOOLS__ && devFlags.god) this.refillBars(); // again after update, so the HUD never sees a spent bar
     this.spawner.update(dt, this.player.cx);
     this.boss?.update(dt);
-    for (const n of this.npcs) n.update(dt, this.player.cx);
+    if (__DEV_TOOLS__ && devFlags.god) this.superTouchKill();
     for (const l of this.lamps) l.update(dt);
     for (const p of this.pickups) p.update(dt);
     this.fx.update(dt);
@@ -316,27 +313,6 @@ export class WorldScene extends Phaser.Scene {
 
   private updateInteractions(_dt: number): void {
     const p = this.player;
-    let prompt: string | null = null;
-
-    // NPCs
-    let near: Npc | null = null;
-    let best = 110;
-    for (const n of this.npcs) {
-      const d = Math.abs(n.x - p.cx);
-      if (d < best) { best = d; near = n; }
-    }
-    if (this.dialogue.active) {
-      if (p.interactRequested) this.dialogue.advance();
-    } else if (near && p.alive) {
-      prompt = t('Press E to talk to {name}', { name: t(near.def.name) });
-      if (p.interactRequested) {
-        this.dialogue.open(near.def.id);
-        p.locked = true;
-        p.arcade.setVelocityX(0);
-      }
-    }
-    p.interactRequested = false;
-
     // pickups
     for (const pk of this.pickups) {
       if (pk.collected) continue;
@@ -366,7 +342,6 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
-    if (prompt !== this.lastPrompt) { this.lastPrompt = prompt; bus.emit('prompt', prompt); }
   }
 
   private collect(pk: Pickup): void {
@@ -443,6 +418,8 @@ export class WorldScene extends Phaser.Scene {
 
   private onBossDefeated(): void {
     audio.playMusic('city');
+    // Persist completion immediately (before the victory banner), then show the screen once the player has seen the kill.
+    void session.recordCampaignCompletion().then(() => this.scheduleCompletionScreen());
     this.time.delayedCall(2600, () => {
       this.barrier?.destroy();
       this.barrierG?.destroy();
@@ -450,6 +427,31 @@ export class WorldScene extends Phaser.Scene {
       session.toast(t(this.region.zones.some((z) => z.requiresBoss) ? 'The seal breaks. The exit is open.' : 'The seal breaks. The way back is open.'), 'good');
       audio.play('gate');
     });
+  }
+
+  private refillBars(): void {
+    this.player.stamina = this.player.stats.maxStamina;
+    this.player.energy = this.player.stats.maxEnergy;
+  }
+
+  /** Dev "Super Mode": any living enemy (or engaged boss) overlapping the player dies on contact. */
+  private superTouchKill(): void {
+    if (!this.player.alive) return;
+    this.player.hurtbox(this.rectA);
+    const targets: { alive: boolean; hurtbox(r: Phaser.Geom.Rectangle): void }[] = [...this.spawner.active];
+    if (this.boss?.engaged) targets.push(this.boss);
+    for (const e of targets) {
+      if (!e.alive) continue;
+      e.hurtbox(this.rectB);
+      if (!Phaser.Geom.Rectangle.Overlaps(this.rectA, this.rectB)) continue;
+      devFlags.sandbox = true; // kills pay out XP/loot: keep the real save untouched, like every other dev action
+      (e as unknown as { die(): void }).die();
+    }
+  }
+
+  private scheduleCompletionScreen(): void {
+    if (!session.completionPending) return;
+    this.time.delayedCall(4200, () => gameApi.showCompletion());
   }
 
   /* ------------------------------------------------------------------ secrets / camera / HUD */
@@ -540,7 +542,6 @@ export class WorldScene extends Phaser.Scene {
     safe(() => this.scale.off('resize', this.applyZoom, this));
     safe(() => this.input.keyboard?.off('keydown-F3', this.toggleDebug, this));
     safe(() => this.unsubs.forEach((u) => u()));
-    safe(() => { this.dialogue.onClose = undefined; this.dialogue.close(); });
     safe(() => this.clock.dispose());
     safe(() => this.player.input.destroy());
     safe(() => this.chunks.destroy());
@@ -548,11 +549,9 @@ export class WorldScene extends Phaser.Scene {
     this.debugG = null;
     session.hooks = null;
     if (runtime.world === this) runtime.world = null;
-    bus.emit('prompt', null);
     bus.emit('boss:update', null);
     bus.emit('banner', null);
     bus.emit('combo', 0);
-    this.lastPrompt = null;
   }
 
   /** Called by the API when the UI pauses/resumes. */

@@ -51,7 +51,7 @@ export function AboutScreen(): ReactElement {
       <DeveloperCard />
       <div className="credits">
         <p><strong>{t('STICKMAN')}: {t('OPEN WORLD FIGHTER')}</strong></p>
-        <p>{t('A neon city has fallen to street gangs and a hidden Warden. Train with Master Ren, take on quests, level up your skills, and fight your way to the boss arena.')}</p>
+        <p>{t('A neon city has fallen to street gangs and a hidden Warden. Take on quests, level up your skills, and fight your way to the boss arena.')}</p>
         <p>{t('Design, code, animation and audio: all original and procedural. No third-party assets.')}</p>
         <p className="muted">{t('Inspired by the feel of side-scrolling stickman action games.')}</p>
       </div>

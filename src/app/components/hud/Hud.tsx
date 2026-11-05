@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { useGameStore } from '@/store/game-store';
 import { gameApi } from '@/game/managers/game-api';
 import { ABILITIES, ABILITY_ORDER } from '@/game/config/abilities';
-import { NPCS } from '@/game/config/npcs';
 import { MAX_LEVEL, xpToNext } from '@/game/config/progression';
 import { trackedQuests } from '@/game/systems/quests/quest-engine';
 import { useDevice } from '@/app/mobile/device';
@@ -34,33 +33,13 @@ function Toasts(): ReactElement {
   );
 }
 
-function Dialogue(): ReactElement | null {
-  const d = useGameStore((s) => s.dialogue);
-  if (!d) return null;
-  return (
-    <div className="dialogue" role="dialog" aria-label={`Dialogue with ${d.npcName}`}>
-      <div className="dialogue-name">{d.npcName}</div>
-      <p>{d.text}</p>
-      {d.choices ? (
-        <div className="dialogue-choices">
-          {d.choices.map((c, i) => <button key={c} className="btn small-btn" onClick={() => gameApi.dialogueChoose(i)}>{c}</button>)}
-        </div>
-      ) : (
-        <button className="btn small-btn" onClick={() => gameApi.dialogueAdvance()}>{t(d.hasNext ? 'Next ▸' : 'Close')} <kbd>E</kbd></button>
-      )}
-    </div>
-  );
-}
-
 export function Hud(): ReactElement {
   const { touch } = useDevice();
   const hud = useGameStore((s) => s.hud);
   const profile = useGameStore((s) => s.profile);
   const boss = useGameStore((s) => s.boss);
-  const prompt = useGameStore((s) => s.prompt);
   const combo = useGameStore((s) => s.combo);
   const banner = useGameStore((s) => s.banner);
-  const dialogue = useGameStore((s) => s.dialogue);
   const tracked = trackedQuests(profile);
   const xpNeed = profile.level >= MAX_LEVEL ? 1 : xpToNext(profile.level);
   const xpPct = profile.level >= MAX_LEVEL ? 100 : (profile.xp / xpNeed) * 100;
@@ -85,7 +64,7 @@ export function Hud(): ReactElement {
             {tracked.map(({ def, progress }) => (
               <div key={def.id} className="tracker-q">
                 <strong>{t(def.title)}</strong>
-                {progress.status === 'ready' ? <div className="ready">{t('Return to {name}', { name: t(NPCS[def.giver].name) })}</div> : def.objectives.map((o, i) => (
+                {def.objectives.map((o, i) => (
                   <div key={i} className={progress.progress[i] >= o.count ? 'done' : ''}>{t(o.label)} {Math.min(progress.progress[i], o.count)}/{o.count}</div>
                 ))}
               </div>
@@ -125,9 +104,7 @@ export function Hud(): ReactElement {
       </div>
 
       {combo >= 2 && <div className="combo" key={combo}>{combo}<small> {t('HIT COMBO')}</small></div>}
-      {prompt && !dialogue && <div className="prompt">{touch ? prompt.replace(/Press E to/i, 'Tap 💬 to').replace(/اضغط E/, 'اضغط 💬') : prompt}</div>}
       {banner && <div className="banner"><h2>{banner.title}</h2>{banner.subtitle && <p>{banner.subtitle}</p>}</div>}
-      <Dialogue />
       <Toasts />
     </div>
   );

@@ -4,6 +4,7 @@ import { useGameStore } from '@/store/game-store';
 import { gameApi } from '@/game/managers/game-api';
 import { SettingsPanel } from '@/app/components/settings/SettingsPanel';
 import { ControlsScreen } from '@/app/components/screens/ControlsScreen';
+import { CampaignScreen } from '@/app/components/screens/CampaignScreen';
 import { AboutScreen } from '@/app/components/screens/AboutScreen';
 import { t } from '@/i18n';
 
@@ -16,17 +17,18 @@ export function MainMenu(): ReactElement {
   useEffect(() => { first.current?.focus(); }, [panel]);
 
   if (panel !== 'root') {
-    const titles = { settings: t('Settings'), controls: t('Controls'), about: t('About / Credits') } as Record<string, string>;
+    const titles = { settings: t('Settings'), controls: t('Controls'), about: t('About / Credits'), campaign: t('Campaign Progress') } as Record<string, string>;
     return (
       <div className="screen center menu">
-        <div className="card wide">
+        <div className={`card wide ${panel === 'campaign' ? 'campaign-card' : ''}`}>
           <h2>{titles[panel] ?? ''}</h2>
           <div className="card-body">
           {panel === 'settings' && <SettingsPanel />}
           {panel === 'controls' && <ControlsScreen />}
           {panel === 'about' && <AboutScreen />}
+          {panel === 'campaign' && <CampaignScreen />}
           </div>
-          <button ref={first} className="btn" onClick={() => setPanel('root')}>{t('Back')}</button>
+          {panel !== 'campaign' && <button ref={first} className="btn" onClick={() => setPanel('root')}>{t('Back')}</button>}
         </div>
       </div>
     );
@@ -46,6 +48,7 @@ export function MainMenu(): ReactElement {
         >
           {t('Continue')}
         </button>
+        <button className="btn" onClick={() => setPanel('campaign')}>{t('Campaign Progress')}</button>
         <button className="btn" onClick={() => setPanel('settings')}>{t('Settings')}</button>
         <button className="btn" onClick={() => setPanel('controls')}>{t('Controls')}</button>
         <button className="btn" onClick={() => setPanel('about')}>{t('About / Credits')}</button>
