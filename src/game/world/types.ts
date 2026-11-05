@@ -6,6 +6,7 @@ import type { ItemDef } from '@/game/config/items';
 import type { BossMove } from '@/game/config/boss-moves';
 import type { AccessorySpec } from '@/game/animations/accessories';
 import type { Fx } from '@/game/managers/Fx';
+import type { WeaponDef } from '@/game/weapons/types';
 
 /** Identifier of a visual theme. One per city and one per boss arena; add a new string when you add a world. */
 export type ThemeId = string;
@@ -131,6 +132,8 @@ export interface WorldPackMeta {
   boss: BossDef;
   bossAttacks?: BossAttackSet;
   items?: ItemDef[];
+  /** Weapons introduced by this world (boss / chest / quest rewards and its shop stock). */
+  weapons?: WeaponDef[];
   /** In story order. */
   quests?: QuestDef[];
   /** Data-only rig accessories (fighter silhouettes) for this world's enemies and boss. */

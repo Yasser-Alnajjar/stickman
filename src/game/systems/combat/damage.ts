@@ -21,7 +21,7 @@ export function computeDamage(i: DamageInput): number {
   return Math.max(1, Math.round(d));
 }
 
-/** Combo damage scaling: +8% per hit already landed in the chain, capped. */
-export function comboScale(hits: number): number {
-  return 1 + Math.min(hits, 10) * 0.08;
+/** Combo damage scaling: +8% per hit already landed in the chain (weapons may change the gain), capped at 10 hits. */
+export function comboScale(hits: number, gain = 0.08): number {
+  return 1 + Math.min(hits, 10) * gain;
 }

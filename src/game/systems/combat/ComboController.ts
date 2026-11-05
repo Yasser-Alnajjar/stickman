@@ -1,3 +1,4 @@
+import type { AttackDef } from '@/shared/types';
 import { PLAYER_ATTACKS } from '@/game/config/attacks';
 import { PLAYER_CFG } from '@/game/config/player';
 import { comboScale } from '@/game/systems/combat/damage';
@@ -9,14 +10,26 @@ const OPENERS: Record<AttackInput, string> = { light: 'punch1', kick: 'kick', he
 /**
  * Pure combo logic: input buffer, chain windows and hit counter.
  * The player drives it with `update(dt)`, `push()` and `onAttackStarted/Ended`.
+ * The attack graph comes from the equipped weapon (`setTable`); the default is the unarmed combo.
  */
 export class ComboController {
+  private table: Record<string, AttackDef> = PLAYER_ATTACKS;
+  private openers: Record<AttackInput, string> = OPENERS;
+  private gain = 0.08;
   lastAttackId: string | null = null;
   /** Remaining ms in which a chain input after the last attack is still honoured. */
   chainWindow = 0;
   buffered: { input: AttackInput; ttl: number } | null = null;
   hits = 0;
   private hitTimer = 0;
+
+  /** Switches the combo graph (weapon change). Always starts a clean chain. */
+  setTable(attacks: Record<string, AttackDef>, openers: Record<AttackInput, string>, gain = 0.08): void {
+    this.table = attacks;
+    this.openers = openers;
+    this.gain = gain;
+    this.reset();
+  }
 
   push(input: AttackInput): void {
     this.buffered = { input, ttl: PLAYER_CFG.inputBufferMs };
@@ -39,16 +52,16 @@ export class ComboController {
 
   /** Which attack should `input` trigger right now? `attackInProgress` = the previous attack is still running. */
   resolve(input: AttackInput, attackInProgress: boolean): string {
-    const prev = this.lastAttackId ? PLAYER_ATTACKS[this.lastAttackId] : undefined;
+    const prev = this.lastAttackId ? this.table[this.lastAttackId] : undefined;
     if (prev && (attackInProgress || this.chainWindow > 0)) {
       const nxt = prev.next?.[input];
       if (nxt) return nxt;
     }
-    return OPENERS[input];
+    return this.openers[input];
   }
 
   hasChainFrom(id: string, input: AttackInput): boolean {
-    return !!PLAYER_ATTACKS[id]?.next?.[input];
+    return !!this.table[id]?.next?.[input];
   }
 
   onAttackStarted(id: string): void {
@@ -58,7 +71,7 @@ export class ComboController {
   }
 
   onAttackEnded(): void {
-    const def = this.lastAttackId ? PLAYER_ATTACKS[this.lastAttackId] : undefined;
+    const def = this.lastAttackId ? this.table[this.lastAttackId] : undefined;
     this.chainWindow = def?.comboWindow ?? 0;
     if (!this.chainWindow) this.lastAttackId = null;
   }
@@ -71,7 +84,7 @@ export class ComboController {
 
   /** Scale applied to the *next* hit (hits already landed). */
   scale(): number {
-    return comboScale(this.hits);
+    return comboScale(this.hits, this.gain);
   }
 
   reset(): void {

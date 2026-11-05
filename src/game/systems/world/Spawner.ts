@@ -36,6 +36,7 @@ export class EnemySpawner {
   /** Creates an enemy outside the spawn table (boss minions). */
   create(kind: keyof typeof ENEMIES, x: number, y: number, patrol: number): Enemy {
     const e = new Enemy(this.ctx, scaleDef(ENEMIES[kind], this.ctx.region.enemyScale), x, y, patrol);
+    e.lootScale = 0; // summoned reinforcements never drop coins
     this.active.add(e);
     return e;
   }

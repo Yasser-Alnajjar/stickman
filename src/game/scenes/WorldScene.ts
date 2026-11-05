@@ -18,6 +18,7 @@ import type { WorldContext } from '@/game/systems/world/context';
 import { Player } from '@/game/entities/player/Player';
 import { Boss } from '@/game/entities/enemies/Boss';
 import { CheckpointLamp, Pickup } from '@/game/entities/world/WorldObjects';
+import { CoinField } from '@/game/entities/world/Coins';
 import { computeZoom } from '@/game/utils/viewport';
 import type { BackdropScene } from './BackdropScene';
 import { t } from '@/i18n';
@@ -51,6 +52,7 @@ export class WorldScene extends Phaser.Scene {
   chunks!: ChunkManager;
   spawner!: EnemySpawner;
   boss: Boss | null = null;
+  coins!: CoinField;
   theme!: WorldTheme;
   private ambience: Ambience | null = null;
 
@@ -113,7 +115,9 @@ export class WorldScene extends Phaser.Scene {
       isLoadedAt: (x) => this.chunks.isLoadedAt(x),
       spawnEnemy: (kind, x, y, patrol = 120) => this.spawner.create(kind, x, y, patrol),
       dropItem: (item, x, y) => this.dropItem(item, x, y),
+      dropCoins: (total, x, y, max) => this.coins.drop(total, x, y, max),
     };
+    this.coins = new CoinField(this, this.fx, () => this.player);
     this.spawner = new EnemySpawner(this.ctx, region.spawns);
 
     // --- spawn position
@@ -271,6 +275,7 @@ export class WorldScene extends Phaser.Scene {
     this.player.update(dt);
     if (__DEV_TOOLS__ && devFlags.god) this.refillBars(); // again after update, so the HUD never sees a spent bar
     this.spawner.update(dt, this.player.cx);
+    this.coins.update(dt);
     this.boss?.update(dt);
     if (__DEV_TOOLS__ && devFlags.god) this.superTouchKill();
     for (const l of this.lamps) l.update(dt);
@@ -367,6 +372,8 @@ export class WorldScene extends Phaser.Scene {
     this.fx.hitSparks(pk.x, pk.y - 20, 0, 10, true);
     this.fx.text(pk.x, pk.y - 40, t(ITEMS[pk.def.item].name), '#ffd24a', 18, 900);
     if (!pk.def.id.startsWith('drop_')) session.profile.collected.push(collectedKey(this.region.id, pk.def.id));
+    // Treasure chests also pay coins (by world) and any weapon stored in them, once, through the shared claim ledger.
+    if (pk.def.chest) session.claimChest(this.region.id, pk.def.id);
     this.pickups = this.pickups.filter((x) => x !== pk);
     pk.destroy();
   }
@@ -538,8 +545,10 @@ export class WorldScene extends Phaser.Scene {
         fire_punch: { remaining: Math.ceil(p.abilities.cooldowns.fire_punch.remaining / 100) * 100, total: p.abilities.cooldowns.fire_punch.total },
         lightning_dash: { remaining: Math.ceil(p.abilities.cooldowns.lightning_dash.remaining / 100) * 100, total: p.abilities.cooldowns.lightning_dash.total },
       },
+      weaponId: p.weapon.def.id,
+      special: { remaining: Math.ceil(p.weapon.cooldown().remaining / 100) * 100, total: p.weapon.cooldown().total, cost: p.weapon.specialCost() },
     };
-    const key = `${snap.health}|${snap.maxHealth}|${snap.stamina}|${snap.energy}|${snap.maxEnergy}|${ABILITY_ORDER.map((a) => snap.cooldowns[a].remaining).join(',')}`;
+    const key = `${snap.health}|${snap.maxHealth}|${snap.stamina}|${snap.energy}|${snap.maxEnergy}|${ABILITY_ORDER.map((a) => snap.cooldowns[a].remaining).join(',')}|${snap.weaponId}|${snap.special.remaining}|${snap.special.cost}`;
     if (key !== this.lastHud) { this.lastHud = key; bus.emit('hud:update', snap); }
   }
 
@@ -576,6 +585,7 @@ export class WorldScene extends Phaser.Scene {
     safe(() => this.scale.off('resize', this.applyZoom, this));
     safe(() => this.input.keyboard?.off('keydown-F3', this.toggleDebug, this));
     safe(() => this.unsubs.forEach((u) => u()));
+    safe(() => this.coins.bank());
     safe(() => this.clock.dispose());
     safe(() => this.player.input.destroy());
     safe(() => this.chunks.destroy());

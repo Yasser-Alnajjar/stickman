@@ -1,4 +1,5 @@
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 import { atk, enemy } from '../enemy-kit';
 
 /** Jade Ruins (world 4): manifest (data only). Level geometry, painters and boss scripts load on demand from ./content. */
@@ -168,5 +169,6 @@ export const jadeManifest: WorldPackMeta = {
     'Wake the Sanctum': 'أيقظ المحراب', 'Defeat Idol-King Azcal in the Sunken Sanctum.': 'اهزم ملك التماثيل أزكال في المحراب الغارق.',
     'Defeat Idol-King Azcal': 'اهزم ملك التماثيل أزكال', 'Jump the boulders and the low beam, stay low under the high one. Rest at a lamp first.': 'اقفز فوق الصخور والشعاع المنخفض، وابقَ منخفضًا تحت العالي. استرح عند مصباح أولًا.',
   },
+  weapons: WORLD_WEAPONS.jade_ruins,
   load: () => import('./content').then((m) => m.content),
 };

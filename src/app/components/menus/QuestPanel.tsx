@@ -5,6 +5,8 @@ import { ITEMS } from '@/game/config/items';
 import { buildCampaign } from '@/game/systems/campaign/progress';
 import { questLog, type QuestLogEntry } from '@/game/systems/quests/quest-engine';
 import { QUESTS } from '@/game/config/quests';
+import { WEAPONS } from '@/game/weapons/registry';
+import { bossWeapons, questWeapons } from '@/game/economy/rewards';
 import type { ItemId } from '@/shared/types';
 import { t } from '@/i18n';
 
@@ -13,6 +15,8 @@ function Rewards({ entry, earned }: { entry: QuestLogEntry; earned?: boolean }):
   const parts = [
     `${r.xp} ${t('XP')}`,
     ...(r.gold ? [`${r.gold} ${t('gold')}`] : []),
+    ...[...questWeapons(entry.def.id), ...entry.def.objectives.filter((o) => o.type === 'boss').flatMap((o) => bossWeapons(o.target))]
+      .map((id) => `${WEAPONS[id].icon} ${t('Weapon')}: ${t(WEAPONS[id].name)}`),
     ...Object.entries(r.items ?? {}).map(([id, n]) => `${ITEMS[id as ItemId].icon} ${t(ITEMS[id as ItemId].name)}${(n ?? 1) > 1 ? ` ×${n}` : ''}`),
   ];
   return <p className="small quest-rewards"><span className="muted">{earned ? t('Rewards earned') : t('Rewards')}:</span> {parts.join(' · ')}</p>;

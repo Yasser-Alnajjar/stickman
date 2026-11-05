@@ -1,6 +1,7 @@
 import type { BossId, EnemyKind, ItemId } from '@/shared/types';
 import { COLORS } from '@/shared/constants';
 import { BOSSES, ENEMIES } from '@/game/world/stores';
+import type { LootConfig } from '@/game/economy/loot';
 
 export interface EnemyDef {
   kind: EnemyKind;
@@ -24,7 +25,10 @@ export interface EnemyDef {
   /** Multiplier on hit-stun duration (0 = never staggered). */
   stunScale: number;
   xp: number;
+  /** Average Gold Coins dropped (see economy/loot.ts for tiers, drop chance and spread). */
   gold: number;
+  /** Optional drop tuning: tier, chance and a fixed reward range. */
+  loot?: LootConfig;
   dodgeChance?: number;
   dashApproach?: boolean;
   /** 0..1: fraction of frontal damage absorbed by a raised shield. Heavy hits break the guard. */

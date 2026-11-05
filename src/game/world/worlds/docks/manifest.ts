@@ -1,5 +1,6 @@
 import { COLORS } from '@/shared/constants';
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 
 /** Rust Docks: manifest (data only). The level geometry and painters live in ./content and load on demand. */
 export const docksManifest: WorldPackMeta = {
@@ -56,5 +57,6 @@ export const docksManifest: WorldPackMeta = {
     'DOCKS': 'الأرصفة',
     'A storm-battered harbour of cranes, containers and cutthroats, ruled by the Tyrant on his quay.': 'ميناء عاصف من الرافعات والحاويات وقطّاع الطرق، يحكمه الطاغية من رصيفه.',
   },
+  weapons: WORLD_WEAPONS.rust_docks,
   load: () => import('./content').then((m) => m.content),
 };

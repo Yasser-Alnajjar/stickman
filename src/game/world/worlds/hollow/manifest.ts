@@ -1,4 +1,5 @@
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 import { atk, enemy } from '../enemy-kit';
 
 /** Hollow Wood (world 8): manifest (data only). */
@@ -171,5 +172,6 @@ export const hollowManifest: WorldPackMeta = {
     'End the Curse': 'أنهِ اللعنة', 'Defeat Countess Mordaine in the Moonlit Keep.': 'اهزم الكونتيسة موردين في الحصن القمري.',
     'Defeat Countess Mordaine': 'اهزم الكونتيسة موردين', 'When the moon warns, leave its column. Stay on the move against the tendrils. Rest at a lamp first.': 'حين ينذر القمر، اترك عموده. ابقَ متحركًا أمام المخالب. استرح عند مصباح أولًا.',
   },
+  weapons: WORLD_WEAPONS.hollow_wood,
   load: () => import('./content').then((m) => m.content),
 };

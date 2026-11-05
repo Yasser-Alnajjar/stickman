@@ -1,4 +1,5 @@
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 import { atk, enemy } from '../enemy-kit';
 
 /** Dune Kingdom (world 6): manifest (data only). */
@@ -175,5 +176,6 @@ export const duneManifest: WorldPackMeta = {
     'Calm the Sands': 'اهدئ الرمال', 'Defeat Sand Sovereign Khamsin in the Buried Throne.': 'اهزم سلطان الرمال خماسين في العرش المدفون.',
     'Defeat Sand Sovereign Khamsin': 'اهزم سلطان الرمال خماسين', 'Jump the sand-devils. When the floor drags you in, run or jump away before the maw closes. Rest at a lamp first.': 'اقفز فوق أعاصير الرمل. حين تسحبك الأرض، اركض أو اقفز بعيدًا قبل أن ينطبق الفك. استرح عند مصباح أولًا.',
   },
+  weapons: WORLD_WEAPONS.dune_kingdom,
   load: () => import('./content').then((m) => m.content),
 };

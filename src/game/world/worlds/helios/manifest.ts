@@ -1,4 +1,5 @@
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 import { atk, enemy } from '../enemy-kit';
 
 /** Helios Ring (world 7): manifest (data only). */
@@ -178,5 +179,6 @@ export const heliosManifest: WorldPackMeta = {
     'Shut Down AEGIS': 'أطفئ إيجيس', 'Defeat Overseer AEGIS-9 inside the Reactor Dome.': 'اهزم المشرف إيجيس-٩ داخل قبة المفاعل.',
     'Defeat Overseer AEGIS-9': 'اهزم المشرف إيجيس-٩', 'Jump the low lasers, stay low for the high ones, and break free of the gravity well. Rest at a lamp first.': 'اقفز فوق الليزر المنخفض، وابقَ منخفضًا للعالي، وتحرّر من بئر الجاذبية. استرح عند مصباح أولًا.',
   },
+  weapons: WORLD_WEAPONS.helios_ring,
   load: () => import('./content').then((m) => m.content),
 };

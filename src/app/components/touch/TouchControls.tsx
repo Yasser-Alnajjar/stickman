@@ -4,6 +4,8 @@ import { useGameStore } from '@/store/game-store';
 import { gameApi } from '@/game/managers/game-api';
 import { ABILITIES, ABILITY_ORDER } from '@/game/config/abilities';
 import { installTouchSafety, joystickAxes, onTouchReleaseAll, touchInput, type TouchAction } from '@/game/input/TouchInput';
+import { WEAPONS } from '@/game/weapons/registry';
+import { RARITY_CSS } from '@/game/weapons/presentation';
 import { t } from '@/i18n';
 
 const noMenu = (e: { preventDefault(): void }): void => e.preventDefault();
@@ -141,6 +143,37 @@ function AbilityBtn({ index }: { index: 0 | 1 }): ReactElement | null {
   );
 }
 
+function SpecialBtn(): ReactElement | null {
+  const weaponId = useGameStore((s) => s.hud.weaponId);
+  const sp = useGameStore((s) => s.hud.special);
+  const energy = useGameStore((s) => s.hud.energy);
+  const def = WEAPONS[weaponId];
+  if (!def) return null;
+  const frac = sp.total > 0 ? sp.remaining / sp.total : 0;
+  return (
+    <TouchBtn action="special" label={`${t('Special')}: ${t(def.special.name)}`} cls={`special ${energy < sp.cost ? 'low' : ''}`} style={{ ['--c' as string]: RARITY_CSS[def.rarity] }}>
+      <span className="ticon">✦</span>
+      <span className="tlbl">{t('Special')}</span>
+      <span className="tcost">{sp.cost}</span>
+      {frac > 0 && <span className="tcd" style={{ height: `${frac * 100}%` }} />}
+      {frac > 0 && <span className="tcd-text">{(sp.remaining / 1000).toFixed(1)}</span>}
+    </TouchBtn>
+  );
+}
+
+function SwitchBtn(): ReactElement | null {
+  const weaponId = useGameStore((s) => s.hud.weaponId);
+  const owned = useGameStore((s) => s.profile.weapons.owned.length);
+  const def = WEAPONS[weaponId];
+  if (!def) return null;
+  return (
+    <TouchBtn action="weaponNext" label={`${t('Switch weapon')}: ${t(def.name)}`} cls={`wswitch ${owned < 2 ? 'low' : ''}`} style={{ ['--c' as string]: RARITY_CSS[def.rarity] }}>
+      <span className="ticon">{def.icon}</span>
+      <span className="tlbl">⇄ {t('Swap')}</span>
+    </TouchBtn>
+  );
+}
+
 /** Touch overlay for landscape play. Everything it does goes through `touchInput` -> `PlayerInput`. */
 export function TouchControls(): ReactElement {
   useEffect(() => {
@@ -160,6 +193,8 @@ export function TouchControls(): ReactElement {
         <TouchBtn action="block" label={t('Block')} cls="block"><span className="ticon">🛡</span><span className="tlbl">{t('Block')}</span></TouchBtn>
         <AbilityBtn index={0} />
         <AbilityBtn index={1} />
+        <SpecialBtn />
+        <SwitchBtn />
       </div>
       <div className="tquick">
         <TouchBtn action="tonic" label={t('Health Tonic')} cls="mini"><span className="ticon">🧪</span></TouchBtn>

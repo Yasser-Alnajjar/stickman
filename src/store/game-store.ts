@@ -4,7 +4,7 @@ import type { PlayState } from '@/game/events/bus';
 import { createProfile } from '@/game/systems/progression/profile';
 import { DEFAULT_AUDIO, type AudioSettings, audio } from '@/game/managers/AudioManager';
 
-export type Panel = 'root' | 'inventory' | 'skills' | 'quests' | 'settings' | 'controls' | 'about' | 'campaign';
+export type Panel = 'root' | 'inventory' | 'shop' | 'skills' | 'quests' | 'settings' | 'controls' | 'about' | 'campaign';
 
 export interface GameStore {
   play: PlayState;
@@ -41,6 +41,7 @@ export const useGameStore = create<GameStore>((set) => ({
   hud: {
     health: 100, maxHealth: 100, stamina: 100, maxStamina: 100, energy: 100, maxEnergy: 100,
     cooldowns: { fire_punch: { remaining: 0, total: 1 }, lightning_dash: { remaining: 0, total: 1 } },
+    weaponId: 'fists', special: { remaining: 0, total: 1, cost: 20 },
   },
   profile: startProfile,
   hasSave: false,

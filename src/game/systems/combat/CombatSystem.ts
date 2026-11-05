@@ -6,6 +6,8 @@ import { audio } from '@/game/managers/AudioManager';
 import type { Fx } from '@/game/managers/Fx';
 import type { GameClock } from './GameClock';
 import { t } from '@/i18n';
+import { HitGate } from '@/game/weapons/hit-gate';
+import { COLORS } from '@/shared/constants';
 
 export interface HitResult { outcome: HitOutcome; damage: number; dir: number }
 
@@ -16,6 +18,8 @@ const rectB = new Phaser.Geom.Rectangle();
 export class CombatSystem {
   readonly fighters = new Set<Fighter>();
   debug = false;
+  /** Limits how often the player's weapons can hit the same target (see weapons/hit-gate.ts). */
+  readonly gate = new HitGate();
 
   constructor(private readonly fx: Fx, private readonly clock: GameClock) {}
 
@@ -36,8 +40,11 @@ export class CombatSystem {
       if (t.team === attacker.team || !t.alive || hitSet.has(t.id)) continue;
       t.hurtbox(rectB);
       if (!Phaser.Geom.Rectangle.Overlaps(rect, rectB)) continue;
+      const fromPlayer = attacker.team === 'player';
+      if (fromPlayer && !this.gate.allows(t.id, this.clock.now)) continue; // too soon after another hit: try again next frame
       const outcome = this.resolve(attacker, t, spec, fromX);
       if (outcome === 'ignored') continue; // may hit later once invulnerability ends
+      if (fromPlayer) this.gate.record(t.id, this.clock.now);
       hitSet.add(t.id);
       hits++;
       if (runner) runner.hitLanded = true;
@@ -75,9 +82,10 @@ export class CombatSystem {
     fx.hitSparks(px, py, res.dir, 6 + Math.min(10, Math.round(res.damage / 4)), heavy);
     const isPlayerVictim = target.team === 'player';
     fx.text(target.cx + (Math.random() - 0.5) * 16, target.cy - target.h * 0.55, String(res.damage),
-      isPlayerVictim ? '#ff6b6b' : spec.element === 'fire' ? '#ffb347' : spec.element === 'lightning' ? '#7ff3ff' : '#ffffff', heavy ? 28 : 22);
+      isPlayerVictim ? '#ff6b6b' : spec.element === 'fire' ? '#ffb347' : spec.element === 'lightning' ? '#7ff3ff' : spec.element === 'ice' ? '#bfe9ff' : '#ffffff', heavy ? 28 : 22);
     if (spec.element === 'fire') fx.fireBurst(px, py, 16);
     if (spec.element === 'lightning') fx.boltBurst(px, py, 12);
+    if (spec.element === 'ice') fx.ring(px, py, COLORS.ice, 6, 60, 260, 3);
     audio.play(isPlayerVictim ? 'hurt' : heavy ? 'hitHeavy' : 'hit');
     clock.hitStop(def.hitStop * (res.outcome === 'killed' ? 1.5 : 1));
     fx.shake(def.shake * (isPlayerVictim ? 1.3 : 1), 140);

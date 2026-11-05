@@ -16,11 +16,13 @@ export interface Pose {
   drop: number;   // vertical offset (px, positive = down)
   sx: number; sy: number; // squash & stretch around the feet
   shift: number;  // forward body offset (px)
+  /** Held weapon direction, same convention as the limbs: 0 = down, PI/2 = forward, PI = up. `wa` front hand, `wb` rear hand. */
+  wa: number; wb: number;
 }
 
 export const makePose = (o: Partial<Pose> = {}): Pose => ({
   lean: 0, head: 0, aU: 0, aL: 0, bU: 0, bL: 0, fU: 0, fL: 0, gU: 0, gL: 0,
-  rot: 0, drop: 0, sx: 1, sy: 1, shift: 0, ...o,
+  rot: 0, drop: 0, sx: 1, sy: 1, shift: 0, wa: 0, wb: 0, ...o,
 });
 
 export const POSE_KEYS = Object.keys(makePose()) as (keyof Pose)[];

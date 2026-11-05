@@ -1,5 +1,6 @@
 import { COLORS } from '@/shared/constants';
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 
 /** Ember Foundry: manifest (data only). The level geometry and painters live in ./content and load on demand. */
 export const foundryManifest: WorldPackMeta = {
@@ -60,5 +61,6 @@ export const foundryManifest: WorldPackMeta = {
   text: {
     'A volcanic forge-fortress of gears, lava and molten steel, where the Empress keeps her throne.': 'قلعة مسبك بركانية من التروس والحمم والفولاذ المصهور، حيث تحتفظ الإمبراطورة بعرشها.',
   },
+  weapons: WORLD_WEAPONS.ember_foundry,
   load: () => import('./content').then((m) => m.content),
 };

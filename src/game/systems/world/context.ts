@@ -20,4 +20,6 @@ export interface WorldContext {
   isLoadedAt(x: number): boolean;
   spawnEnemy(kind: Exclude<EnemyKind, 'boss'>, x: number, y: number, patrol?: number): Enemy;
   dropItem(item: ItemId, x: number, y: number): void;
+  /** Drops `total` Gold Coins as physical pickups around (x, y). Granted only when collected (or banked when the area ends). */
+  dropCoins(total: number, x: number, y: number, maxCoins?: number): void;
 }

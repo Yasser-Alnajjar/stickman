@@ -7,6 +7,7 @@ import { runtime } from '@/game/managers/runtime';
 import { session } from '@/game/managers/session';
 import { saveManager } from '@/persistence/save-manager';
 import { devFlags } from './flags';
+import { WEAPONS, WEAPON_ORDER } from '@/game/weapons/registry';
 
 /** Stages in campaign order, derived from the world packs. */
 export const STAGE_ORDER: RegionId[] = stageOrder();
@@ -127,6 +128,23 @@ export async function wipeRealSave(): Promise<void> {
   await saveManager.clear('manual');
   await saveManager.clear('auto');
   location.reload();
+}
+
+/** Adds Gold Coins to the sandbox purse (the real save is never touched). */
+export function giveCoins(n: number): void {
+  ensureSandbox();
+  session.earn(n);
+}
+
+/** Grants every registered weapon at max level so each one can be tried. Sandbox only. */
+export function giveAllWeapons(): void {
+  ensureSandbox();
+  const w = session.profile.weapons;
+  for (const id of WEAPON_ORDER) {
+    if (!w.owned.includes(id)) w.owned.push(id);
+    w.levels[id] = WEAPONS[id].maxLevel;
+  }
+  session.earn(100000);
 }
 
 export { BOSSES };

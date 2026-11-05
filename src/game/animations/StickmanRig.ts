@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { copyPose, lerpPose, makePose, type Pose } from './pose';
 import { A_EL, A_HA, B_EL, B_HA, F_FO, F_KN, G_FO, G_KN, HEAD, HIP, SHO, accessoryOf, tint, type AccessoryCtx } from './accessories';
+import type { WeaponPainter } from './weapon-art';
 
 export interface RigStyle {
   color: number;
@@ -36,6 +37,13 @@ export class StickmanRig {
   /** Extra emissive colour overlay (e.g. fire fist or telegraph). */
   glow: { color: number; amount: number } | null = null;
   private scaleMul = 1;
+  /** Held weapon (the player's equipped weapon); null for unarmed fighters. */
+  weapon: WeaponPainter | null = null;
+  /** 0..1 emphasis for weapon glow while swinging. */
+  swing = 0;
+  private readonly wTip = { x: 0, y: 0 };
+  private wAng = 0;
+  private wAngB = 0;
 
   constructor(scene: Phaser.Scene, readonly style: RigStyle, depth: number) {
     this.g = scene.add.graphics().setDepth(depth);
@@ -67,6 +75,11 @@ export class StickmanRig {
   foot(which: 'f' | 'g', out: RigPoint): RigPoint {
     const i = which === 'f' ? F_FO : G_FO;
     out.x = this.xs[i]; out.y = this.ys[i];
+    return out;
+  }
+  /** World position of the weapon's business end from the last draw. */
+  weaponTip(out: RigPoint): RigPoint {
+    out.x = this.wTip.x; out.y = this.wTip.y;
     return out;
   }
   head(out: RigPoint): RigPoint {
@@ -140,7 +153,33 @@ export class StickmanRig {
       ys[i] = feetY + (ys[i] - feetY) * p.sy + p.drop * s;
     }
 
+    if (this.weapon) this.placeWeapon(F, s, p);
     this.render(F, s, hr);
+  }
+
+  /** Orients the held weapon from the pose (absolute angles, rotated with the body) and re-grips the rear hand. */
+  private placeWeapon(F: 1 | -1, s: number, p: Pose): void {
+    const w = this.weapon!;
+    const xs = this.xs, ys = this.ys;
+    const dirOf = (a: number): number => {
+      const vx = Math.sin(a) * F, vy = Math.cos(a);
+      const r = p.rot * F;
+      return Math.atan2(vx * Math.sin(r) + vy * Math.cos(r), vx * Math.cos(r) - vy * Math.sin(r));
+    };
+    this.wAng = dirOf(p.wa);
+    this.wAngB = dirOf(p.wb);
+    if (w.twoHanded) {
+      // rear hand grips the shaft behind the front hand; clamp so the arm never overstretches
+      const gx = xs[A_HA] - Math.cos(this.wAng) * w.grip * s, gy = ys[A_HA] - Math.sin(this.wAng) * w.grip * s;
+      const reach = (LEN.upper + LEN.fore) * s * 0.98;
+      let dx = gx - xs[SHO], dy = gy - ys[SHO];
+      const d = Math.hypot(dx, dy);
+      if (d > reach) { dx = (dx / d) * reach; dy = (dy / d) * reach; }
+      xs[B_HA] = xs[SHO] + dx; ys[B_HA] = ys[SHO] + dy;
+      xs[B_EL] = xs[SHO] + dx * 0.5; ys[B_EL] = ys[SHO] + dy * 0.5 + 5 * s;
+    }
+    this.wTip.x = xs[A_HA] + Math.cos(this.wAng) * w.reach * s;
+    this.wTip.y = ys[A_HA] + Math.sin(this.wAng) * w.reach * s;
   }
 
   private render(F: 1 | -1, s: number, hr: number): void {
@@ -185,6 +224,14 @@ export class StickmanRig {
     // front limbs
     limb(HIP, F_KN, col); limb(F_KN, F_FO, col); joint(F_KN, col); joint(F_FO, col);
     limb(SHO, A_EL, col); limb(A_EL, A_HA, col); joint(A_EL, col); joint(A_HA, col, lw * 1.25);
+
+    // held weapon(s): the rear one first so the front weapon overlaps it
+    const wp = this.weapon;
+    if (wp) {
+      const base = { g, F, s, alpha: a, time: this.time, swing: this.swing };
+      if (wp.dual) wp.draw({ ...base, x: xs[B_HA], y: ys[B_HA], ang: this.wAngB });
+      wp.draw({ ...base, x: xs[A_HA], y: ys[A_HA], ang: this.wAng });
+    }
 
     // glow fist (fire punch / telegraph)
     if (this.glow && this.glow.amount > 0) {

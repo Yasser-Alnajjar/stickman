@@ -2,6 +2,8 @@ import { ENEMY_ATTACKS, bossSet } from '@/game/config/attacks';
 import { ACCESSORIES, fromSpec } from '@/game/animations/accessories';
 import { registerTranslations } from '@/i18n';
 import { BOSSES, ENEMIES, ITEMS, ITEM_ORDER, QUESTS, QUEST_ORDER, WORLD_PACKS } from './stores';
+import { registerWeapon } from '@/game/weapons/registry';
+import '@/game/weapons/catalog/core';
 import type { WorldPackMeta } from './types';
 
 /**
@@ -30,6 +32,7 @@ export function registerPack(pack: WorldPackMeta): void {
     ITEMS[item.id] = item;
     ITEM_ORDER.push(item.id);
   }
+  for (const w of pack.weapons ?? []) registerWeapon(w);
   for (const q of pack.quests ?? []) {
     if (QUESTS[q.id]) dupe('quest', q.id);
     QUESTS[q.id] = q;

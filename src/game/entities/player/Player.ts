@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { AbilityId, AttackDef, AttackPhase, HitOutcome, HitSpec, PlayerStats } from '@/shared/types';
+import type { SpecialDef } from '@/game/weapons/types';
 import { COLORS, DEPTH } from '@/shared/constants';
 import { PLAYER_CFG } from '@/game/config/player';
 import { PLAYER_ATTACKS } from '@/game/config/attacks';
@@ -24,6 +25,13 @@ import { bus } from '@/game/events/bus';
 import type { WorldContext } from '@/game/systems/world/context';
 import { t } from '@/i18n';
 import { devFlags } from '@/devtools/flags';
+import { WeaponRuntime } from '@/game/weapons/runtime';
+import { StaggerGate } from '@/game/weapons/hit-gate';
+import { cycleTarget, equippedId, levelOf } from '@/game/weapons/ownership';
+import { RARITY_COLOR } from '@/game/weapons/presentation';
+import { PlayerProjectiles } from '@/game/systems/combat/PlayerProjectiles';
+import { painterFor } from '@/game/animations/weapon-art';
+import { REST_ANGLE, poseFlurry, weaponAngles } from '@/game/animations/weapon-clips';
 
 export type { PlayerState };
 export { PLAYER_TRANSITIONS };
@@ -32,7 +40,7 @@ const HERO_STYLE = { color: COLORS.player, lineWidth: 5, scale: 1, accessory: 'h
 const IGNORED: HitResult = { outcome: 'ignored', damage: 0, dir: 1 };
 
 interface DashData {
-  kind: 'dash' | 'lightning';
+  kind: 'dash' | 'lightning' | 'flurry';
   t: number;
   dur: number;
   dir: -1 | 1;
@@ -43,6 +51,9 @@ interface DashData {
   startY: number;
   spec?: HitSpec;
   hits: Set<number>;
+  /** flurry: ms until the next hit tick, and the finisher thrown at the end. */
+  tick?: number;
+  finisher?: { def: AttackDef; spec: Partial<HitSpec> };
 }
 
 export class Player extends Fighter implements AbilityHost {
@@ -51,6 +62,13 @@ export class Player extends Fighter implements AbilityHost {
   readonly combo = new ComboController();
   readonly abilities: AbilityManager;
   readonly input: PlayerInput;
+  /** The equipped weapon: concrete attacks, stats, special cooldowns. Re-synced from the profile every frame. */
+  readonly weapon = new WeaponRuntime(() => session.profile);
+  readonly projectiles: PlayerProjectiles;
+  private readonly staggerGate = new StaggerGate();
+  private activeSpecial: SpecialDef | null = null;
+  private switchCd = 0;
+  private weaponTrail: Trail;
   stats: PlayerStats;
   stamina: number;
   energy: number;
@@ -100,6 +118,9 @@ export class Player extends Fighter implements AbilityHost {
     this.fistTrail = ctx.fx.createTrail(0xffffff, 9);
     this.footTrail = ctx.fx.createTrail(0xffffff, 9);
     this.dashTrail = ctx.fx.createTrail(COLORS.lightning, 22, 12);
+    this.weaponTrail = ctx.fx.createTrail(0xffffff, 8, 10);
+    this.projectiles = new PlayerProjectiles(ctx.scene, ctx.combat, ctx.fx, () => ({ width: ctx.region.width, groundY: ctx.region.groundY }));
+    this.applyWeapon();
     this.runner.onPhase = (phase, prev) => this.onAttackPhase(phase, prev);
     this.arcade.setSize(PLAYER_CFG.width, PLAYER_CFG.height);
   }
@@ -133,6 +154,7 @@ export class Player extends Fighter implements AbilityHost {
     this.stamina = this.stats.maxStamina;
     this.energy = this.stats.maxEnergy;
     this.abilities.resetCooldowns();
+    this.weapon.resetCooldowns();
   }
   spendEnergy(n: number): void { this.energy = Math.max(0, this.energy - n); }
   flashText(text: string, color: string): void { this.ctx.fx.text(this.cx, this.cy - 70, text, color, 18, 700); }
@@ -140,12 +162,12 @@ export class Player extends Fighter implements AbilityHost {
   /* ------------------------------------------------------------------ state helpers */
 
   get state(): PlayerState { return this.sm.state; }
-  get isAttacking(): boolean { return this.sm.is('Attacking') || (this.sm.is('Dashing') && this.dash?.kind === 'lightning'); }
+  get isAttacking(): boolean { return this.sm.is('Attacking') || (this.sm.is('Dashing') && (this.dash?.kind === 'lightning' || this.dash?.kind === 'flurry')); }
 
   private invulnerable(): boolean {
     if (this.iframes > 0) return true;
     if (this.sm.is('Dodging')) return this.dodgeT >= PLAYER_CFG.dodge.iframeStart && this.dodgeT <= PLAYER_CFG.dodge.iframeEnd;
-    if (this.sm.is('Dashing') && this.dash) return this.dash.kind === 'lightning' || this.dash.t < PLAYER_CFG.dash.iframes;
+    if (this.sm.is('Dashing') && this.dash) return this.dash.kind === 'lightning' || this.dash.kind === 'flurry' || this.dash.t < PLAYER_CFG.dash.iframes;
     return false;
   }
 
@@ -179,7 +201,11 @@ export class Player extends Fighter implements AbilityHost {
     this.staminaDelay = Math.max(0, this.staminaDelay - dt);
     this.combo.update(dt);
     this.abilities.update(dt);
+    this.weapon.update(dt);
+    this.switchCd = Math.max(0, this.switchCd - dt);
+    this.syncWeapon();
     this.runner.update(dt);
+    this.projectiles.update(dt);
     this.tickBurn(dt);
 
     // resources
@@ -203,6 +229,8 @@ export class Player extends Fighter implements AbilityHost {
     if (I.light) this.combo.push('light');
     else if (I.kick) this.combo.push('kick');
     else if (I.heavy) this.combo.push('heavy');
+    if (I.weaponNext) this.quickSwitch(1);
+    else if (I.weaponPrev) this.quickSwitch(-1);
     if (I.tonic) session.useItem('health_tonic');
     if (I.cell) session.useItem('energy_cell');
 
@@ -283,10 +311,11 @@ export class Player extends Fighter implements AbilityHost {
     if (I.dashPressed && this.startDash(I)) return true;
     if (I.ability1 && this.abilities.tryActivate(0)) return true;
     if (I.ability2 && this.abilities.tryActivate(1)) return true;
+    if (I.special && this.trySpecial()) return true;
     const b = this.combo.buffered;
     if (b && !this.sm.is('Blocking')) {
       const id = this.combo.resolve(b.input, this.runner.running);
-      if (this.startAttack(PLAYER_ATTACKS[id])) return true;
+      if (this.startWeaponAttack(id)) return true;
       this.combo.buffered = null;
     }
     if (I.blockHeld && this.grounded && !this.sm.is('Blocking') && this.sm.can('Blocking')) {
@@ -316,8 +345,15 @@ export class Player extends Fighter implements AbilityHost {
       this.combo.buffered = null;
       return false;
     }
+    const energyCost = def.energyCost ?? 0;
+    if (this.energy < energyCost) {
+      this.flashText(t('Not enough energy'), '#6aa8ff');
+      this.combo.buffered = null;
+      return false;
+    }
     if (!this.sm.transition('Attacking')) return false;
     this.stamina -= cost;
+    this.energy -= energyCost;
     if (cost > 0) this.staminaDelay = PLAYER_CFG.staminaRegenDelay;
     this.combo.onAttackStarted(def.id);
     const mx = this.input.intent.moveX;
@@ -336,12 +372,14 @@ export class Player extends Fighter implements AbilityHost {
       if (def.lunge) this.arcade.setVelocityX(this.facing * def.lunge);
       audio.play(def.sfx === 'fire' ? 'fire' : 'whoosh');
       if (def.sfx !== 'fire') audio.play(def.sfx);
-      if (this.runner.spec?.element === 'fire') {
+      if (this.activeSpecial) this.fireSpecialEffects(this.activeSpecial);
+      else if (def.projectile && this.runner.spec) this.projectiles.fire(this, def.projectile, { ...this.runner.spec }, this.facing);
+      if (this.runner.spec?.def.id === 'fire_punch') {
         this.ctx.fx.fireBurst(this.cx + this.facing * 40, this.cy - 20, 14);
         this.ctx.fx.ring(this.cx + this.facing * 40, this.cy - 20, COLORS.fire, 8, 70, 250);
       }
     }
-    if (phase === 'idle' && prev !== 'idle') this.combo.onAttackEnded();
+    if (phase === 'idle' && prev !== 'idle') { this.combo.onAttackEnded(); this.activeSpecial = null; }
   }
 
   private updateAttacking(dt: number, I: Intent): void {
@@ -353,16 +391,19 @@ export class Player extends Fighter implements AbilityHost {
 
     if (r.active) {
       this.ctx.combat.processAttack(this, r);
-      if (r.spec?.element === 'fire') {
+      if (r.spec?.def.id === 'fire_punch') {
         this.ctx.fx.fireTick(this.cx + this.facing * 50, this.cy - 24);
         this.ctx.fx.fireTick(this.cx + this.facing * 62, this.cy - 30);
+      } else if (r.spec?.element === 'fire' && this.rig.weapon) {
+        this.rig.weaponTip(this.pt);
+        this.ctx.fx.fireTick(this.pt.x, this.pt.y);
       }
     }
 
     if (!r.running) {
       // finished: chain buffered input, otherwise return to locomotion
       const b = this.combo.buffered;
-      if (b && this.startAttack(PLAYER_ATTACKS[this.combo.resolve(b.input, false)])) return;
+      if (b && this.startWeaponAttack(this.combo.resolve(b.input, false))) return;
       this.sm.transition(this.grounded ? 'Idle' : 'Falling');
       return;
     }
@@ -372,10 +413,11 @@ export class Player extends Fighter implements AbilityHost {
       if (I.dodgePressed && this.startDodge(I)) return;
       const b = this.combo.buffered;
       if (b && def && this.combo.hasChainFrom(def.id, b.input)) {
-        if (this.startAttack(PLAYER_ATTACKS[this.combo.resolve(b.input, true)])) return;
+        if (this.startWeaponAttack(this.combo.resolve(b.input, true))) return;
       }
       if (I.ability1 && this.abilities.tryActivate(0)) return;
       if (I.ability2 && this.abilities.tryActivate(1)) return;
+      if (I.special && this.trySpecial()) return;
       if (I.blockHeld && this.grounded && this.sm.can('Blocking')) {
         r.cancel();
         this.combo.onAttackEnded();
@@ -388,10 +430,13 @@ export class Player extends Fighter implements AbilityHost {
   override onHitLanded(target: Fighter, spec: HitSpec, res: HitResult): void {
     if (res.outcome !== 'hit' && res.outcome !== 'killed') return;
     const n = this.combo.registerHit();
-    this.energy = Math.min(this.stats.maxEnergy, this.energy + PLAYER_CFG.energyOnHit);
+    // Casting weapons pay energy per attack and must not refund it from their own hits.
+    if (!spec.def.energyCost && !spec.def.projectile) this.energy = Math.min(this.stats.maxEnergy, this.energy + PLAYER_CFG.energyOnHit);
     if (n >= 2) this.ctx.fx.text(this.cx, this.cy - 74, t('{n} HIT', { n }), n >= 5 ? '#ffd24a' : '#ffffff', 16 + Math.min(n, 8), 600);
     if (spec.def.id === 'combo_heavy') this.ctx.fx.text(this.cx, this.cy - 100, t('FINISHER!'), '#ff8a5c', 26, 800);
     if (spec.extraStun) target.stun(spec.extraStun);
+    // Weapon stagger: never on bosses or armoured moves, and a target cannot be re-staggered during its lockout.
+    if (spec.stagger && res.outcome === 'hit' && this.staggerGate.tryStagger(target.id, this.ctx.clock.now, target.staggerImmune())) target.stun(spec.stagger);
   }
 
   /* ------------------------------------------------------------------ blocking */
@@ -493,7 +538,18 @@ export class Player extends Fighter implements AbilityHost {
     d.t += dt;
     this.arcade.setVelocityY(0);
 
-    if (d.kind === 'lightning') {
+    if (d.kind === 'flurry') {
+      this.arcade.setVelocityX(d.dir * d.speed);
+      this.dashTrail.push(this.cx, this.cy - 8);
+      d.tick = (d.tick ?? 0) - dt;
+      if (d.spec && d.tick <= 0) {
+        d.tick += this.weapon.def.special.dash?.interval ?? 70;
+        d.hits.clear();
+        const rect = this.tmpRect.setTo(this.cx - 56, this.cy - 46, 112, 92);
+        const n = this.ctx.combat.hitRect(this, rect, d.spec, d.hits, this.cx - d.dir * 30);
+        if (n > 0) { this.ctx.fx.hitSparks(this.cx + d.dir * 36, this.cy - 6, d.dir, 6); this.ctx.fx.shake(0.002, 60); }
+      }
+    } else if (d.kind === 'lightning') {
       this.arcade.setVelocityX(d.dir * d.speed);
       this.dashTrail.push(this.cx, this.cy - 8);
       this.ctx.fx.boltBurst(this.cx, this.cy + (Math.random() - 0.5) * 50, 2);
@@ -508,7 +564,7 @@ export class Player extends Fighter implements AbilityHost {
       if (b) {
         this.endDash(false);
         this.combo.buffered = null;
-        if (this.startAttack(PLAYER_ATTACKS.dash_attack)) return;
+        if (this.startAttack(this.weapon.attack(this.weapon.def.combo.dashAttack ?? 'dash_attack'), this.weaponSpec(PLAYER_ATTACKS.dash_attack))) return;
         this.dash = null;
       } else if (d.t % 40 < dt) {
         this.ctx.fx.dustPuff(this.cx, this.feetY, 1);
@@ -518,7 +574,14 @@ export class Player extends Fighter implements AbilityHost {
 
     const blocked = (d.dir > 0 && this.arcade.blocked.right) || (d.dir < 0 && this.arcade.blocked.left);
     const traveled = Math.abs(this.cx - d.startX) >= d.dist;
-    if (d.t >= d.dur || blocked || traveled) this.endDash(true);
+    if (d.t >= d.dur || blocked || traveled) {
+      if (d.kind === 'flurry' && d.finisher) {
+        const fin = d.finisher;
+        this.endDash(false);
+        if (this.startAttack(fin.def, fin.spec)) return;
+        this.sm.transition(this.grounded ? 'Idle' : 'Falling');
+      } else this.endDash(true);
+    }
     void I;
   }
 
@@ -528,7 +591,10 @@ export class Player extends Fighter implements AbilityHost {
     const d = this.dash;
     if (!d) return;
     this.arcade.allowGravity = true;
-    if (d.kind === 'lightning') {
+    if (d.kind === 'flurry') {
+      this.ctx.fx.ring(this.cx, this.cy, this.weapon.def.vfx.trail, 10, 80, 240);
+      this.arcade.setVelocityX(d.dir * 120);
+    } else if (d.kind === 'lightning') {
       this.ctx.fx.bolt(d.startX, d.startY - 6, this.cx, this.cy - 6, COLORS.lightning, 260);
       this.ctx.fx.boltBurst(this.cx, this.cy, 14);
       this.ctx.fx.ring(this.cx, this.cy, COLORS.lightning, 10, 90, 280);
@@ -538,6 +604,151 @@ export class Player extends Fighter implements AbilityHost {
     }
     this.dash = null;
     if (transition) this.sm.transition(this.grounded ? 'Idle' : 'Falling');
+  }
+
+  /* ------------------------------------------------------------------ weapons */
+
+  /** Spec fields every normal hit of the equipped weapon carries (damage multiplier, element, stagger). */
+  private weaponSpec(def: AttackDef, extraMult = 1): Partial<HitSpec> {
+    const w = this.weapon;
+    const fx = w.def.elementEffect;
+    const stagger = Math.max(def.stagger ?? 0, fx?.stagger ?? 0);
+    return {
+      damageMult: w.stats.damageMult * extraMult,
+      element: w.def.element,
+      burn: fx?.burn,
+      stagger: stagger > 0 ? stagger : undefined,
+    };
+  }
+
+  private startWeaponAttack(id: string): boolean {
+    const def = this.weapon.resolveAttack(id, this.energy);
+    return this.startAttack(def, this.weaponSpec(def));
+  }
+
+  /** Re-reads the equipped weapon and rebuilds everything that depends on it (combo graph, art, trail). */
+  private applyWeapon(): void {
+    const w = this.weapon;
+    w.sync();
+    const c = w.def.combo;
+    this.combo.setTable(c.attacks, c.openers, w.stats.comboGain);
+    this.rig.weapon = painterFor(w.def.id, w.def.category, w.def.art);
+    this.ctx.fx.removeTrail(this.weaponTrail);
+    this.weaponTrail = this.ctx.fx.createTrail(w.def.vfx.trail, w.def.category === 'daggers' ? 5 : 9, 10);
+  }
+
+  /** Called every frame: follows equip changes made from the inventory (while paused) or by quick switching. */
+  private syncWeapon(): void {
+    const p = session.profile;
+    const id = equippedId(p);
+    if (id !== this.weapon.def.id) {
+      if (this.sm.is('Attacking')) {
+        this.runner.cancel();
+        this.sm.transition(this.grounded ? 'Idle' : 'Falling');
+      }
+      this.activeSpecial = null;
+      this.applyWeapon();
+      this.onWeaponChanged();
+    } else if (levelOf(p, id) !== this.weapon.level) {
+      this.weapon.sync();
+      this.combo.setTable(this.weapon.def.combo.attacks, this.weapon.def.combo.openers, this.weapon.stats.comboGain);
+    }
+  }
+
+  private onWeaponChanged(): void {
+    const d = this.weapon.def;
+    this.ctx.fx.text(this.cx, this.cy - 84, `${d.icon} ${t(d.name)}`, `#${RARITY_COLOR[d.rarity].toString(16).padStart(6, '0')}`, 20, 900);
+    this.ctx.fx.ring(this.cx, this.cy - 10, RARITY_COLOR[d.rarity], 10, 64, 320, 3);
+    audio.play('weaponSwitch');
+  }
+
+  /** Quick switch to the next / previous owned weapon during play. Refused while the player cannot act. */
+  private quickSwitch(dir: 1 | -1): void {
+    if (this.locked || !this.alive || this.switchCd > 0) return;
+    if (!WeaponRuntime.canSwitchIn(this.sm.state, this.sm.is('Attacking') && this.canCancelAttack())) { audio.play('denied'); return; }
+    const target = cycleTarget(session.profile, dir);
+    if (target === this.weapon.def.id) { this.flashText(t('No other weapon'), '#9aa3c7'); audio.play('denied'); return; }
+    this.switchCd = 220;
+    if (session.equipWeapon(target, true).ok) this.syncWeapon();
+  }
+
+  /** The weapon's special ability: cooldown and energy are checked here, the effect runs through the shared attack flow. */
+  private trySpecial(): boolean {
+    if (!this.canCast()) return false;
+    const chk = this.weapon.checkSpecial(this.energy);
+    if (!chk.ok) {
+      if (chk.reason === 'energy') this.flashText(t('Not enough energy'), '#6aa8ff');
+      audio.play('denied');
+      return false;
+    }
+    if (!this.castSpecial(this.weapon.def.special)) return false;
+    this.energy = Math.max(0, this.energy - chk.cost);
+    this.weapon.startSpecialCooldown();
+    return true;
+  }
+
+  private specialSpec(sp: SpecialDef, def: AttackDef): Partial<HitSpec> {
+    return this.weaponSpec(def, this.weapon.stats.specialMult);
+  }
+
+  private castSpecial(sp: SpecialDef): boolean {
+    if (sp.kind === 'dash_flurry') return this.castFlurry(sp);
+    this.activeSpecial = sp;
+    if (!this.startAttack(sp.attack, this.specialSpec(sp, sp.attack))) { this.activeSpecial = null; return false; }
+    return true;
+  }
+
+  private castFlurry(sp: SpecialDef): boolean {
+    if (!sp.dash || !this.sm.can('Dashing')) return false;
+    this.runner.cancel();
+    this.combo.onAttackEnded();
+    this.sm.transition('Dashing');
+    const dir = (this.input.intent.moveX !== 0 ? this.input.intent.moveX : this.facing) as -1 | 1;
+    this.facing = dir;
+    const hitDef: AttackDef = {
+      ...sp.attack, damage: sp.dash.hitDamage, hitbox: { ...sp.attack.hitbox }, startup: 0, active: sp.dash.interval, recovery: 0,
+      knockback: { x: 70, y: -40 }, hitStun: 200, hitStop: 18, shake: 0, sfx: 'stab',
+    };
+    const spec: HitSpec = { def: hitDef, element: this.weapon.def.element, comboScale: this.combo.scale(), burn: this.weapon.def.elementEffect?.burn, ...this.specialSpec(sp, hitDef), damageMult: this.weapon.stats.damageMult * this.weapon.stats.specialMult };
+    const { distance, duration } = sp.dash;
+    this.dash = {
+      kind: 'flurry', t: 0, dur: duration, dir, speed: (distance / duration) * 1000, dist: distance, startX: this.cx, startY: this.cy,
+      spec, hits: new Set(), tick: 0, finisher: { def: sp.attack, spec: this.specialSpec(sp, sp.attack) },
+    };
+    this.arcade.allowGravity = false;
+    this.arcade.setVelocity(dir * this.dash.speed, 0);
+    this.iframes = 0;
+    this.ctx.fx.dustPuff(this.cx, this.feetY, 8);
+    this.ctx.fx.ring(this.cx, this.cy, this.weapon.def.vfx.trail, 8, 70, 240);
+    audio.play('special');
+    return true;
+  }
+
+  /** Visual and physical effects at the moment a special's strike lands: shockwaves, waves, projectiles. */
+  private fireSpecialEffects(sp: SpecialDef): void {
+    const w = this.weapon;
+    const fx = this.ctx.fx;
+    const dir = this.facing;
+    const color = w.def.vfx.impact === 0xffffff ? w.def.vfx.trail : w.def.vfx.impact;
+    audio.play(sp.attack.sfx);
+    const base = this.runner.spec!;
+    if (sp.kind === 'slam') {
+      fx.debrisBurst(this.cx + dir * 28, this.feetY - 6, 20);
+      fx.ring(this.cx, this.feetY - 8, color, 20, sp.attack.hitbox.w / 2, 420, 6);
+      fx.dustPuff(this.cx, this.feetY, 12);
+      fx.shake(Math.max(0.01, sp.attack.shake), 260);
+    } else if (sp.kind === 'strike') {
+      fx.ring(this.cx + dir * 50, this.cy - 10, color, 12, 90, 280, 5);
+      fx.hitSparks(this.cx + dir * 60, this.cy - 10, dir, 8, true);
+    }
+    const waveDef: AttackDef = { ...sp.attack, hitStop: Math.min(sp.attack.hitStop, 40), shake: 0.003 };
+    for (const wave of sp.waves ?? []) {
+      this.projectiles.fire(this, { ...wave, color: wave.ground ? wave.color : color }, { ...base, def: waveDef, damageMult: base.damageMult * (wave.damageMult ?? 1) }, dir);
+    }
+    if (sp.kind === 'projectile' && sp.projectile) {
+      fx.ring(this.cx + dir * 36, this.cy - 20, sp.projectile.color, 6, 46, 260, 4);
+      this.projectiles.fire(this, sp.projectile, { ...base, damageMult: base.damageMult * (sp.projectile.damageMult ?? 1) }, dir);
+    }
   }
 
   /* ------------------------------------------------------------------ abilities (AbilityHost) */
@@ -658,16 +869,23 @@ export class Player extends Fighter implements AbilityHost {
     switch (this.sm.state) {
       case 'Attacking': {
         const def = r.def!;
-        poseAttack(P, def.anim, r.phase === 'idle' ? 'recovery' : r.phase, r.phase === 'idle' ? 1 : r.progress);
+        const ph = r.phase === 'idle' ? 'recovery' : r.phase;
+        const pr = r.phase === 'idle' ? 1 : r.progress;
+        poseAttack(P, def.anim, ph, pr);
+        if (this.rig.weapon) weaponAngles(P, def.anim, ph, pr, REST_ANGLE[this.weapon.def.category]);
+        this.rig.swing = r.active ? 1 : 0;
         rate = 55;
-        if (r.spec?.element === 'fire') {
+        if (r.spec?.def.id === 'fire_punch') {
           this.glowAmt = r.phase === 'recovery' ? 1 - r.progress : 1;
           this.rig.glow = { color: COLORS.fire, amount: this.glowAmt };
         }
         // weapon trails during the swing
         if (r.active || (r.phase === 'startup' && r.progress > 0.5)) {
           const kicking = def.anim === 'kick' || def.anim === 'roundhouse';
-          if (kicking) { this.rig.foot('f', this.pt); this.footTrail.push(this.pt.x, this.pt.y); }
+          if (this.rig.weapon && !kicking && def.id !== 'wp_kick') {
+            this.rig.weaponTip(this.pt);
+            this.weaponTrail.push(this.pt.x, this.pt.y);
+          } else if (kicking) { this.rig.foot('f', this.pt); this.footTrail.push(this.pt.x, this.pt.y); }
           else {
             this.rig.hand(def.anim === 'punch2' || def.anim === 'heavy' ? 'b' : 'a', this.pt);
             this.fistTrail.push(this.pt.x, this.pt.y);
@@ -678,7 +896,9 @@ export class Player extends Fighter implements AbilityHost {
       case 'Blocking': poseBlock(P, this.idleT); rate = 28; break;
       case 'Dodging': poseDodge(P, this.dodgeT / PLAYER_CFG.dodge.duration, this.dodgeFwd); rate = 70; break;
       case 'Dashing':
-        if (this.dash?.kind === 'lightning') poseLightning(P, this.idleT); else poseDash(P, this.idleT);
+        if (this.dash?.kind === 'lightning') poseLightning(P, this.idleT);
+        else if (this.dash?.kind === 'flurry') { poseFlurry(P, this.idleT); this.rig.swing = 1; this.rig.weaponTip(this.pt); this.weaponTrail.push(this.pt.x, this.pt.y); }
+        else poseDash(P, this.idleT);
         rate = 45;
         break;
       case 'TakingDamage': poseHurt(P, this.sm.elapsed / Math.max(1, this.hurtDur)); if (this.hurtDur > 700) poseStun(P, this.idleT); rate = 45; break;
@@ -702,6 +922,13 @@ export class Player extends Fighter implements AbilityHost {
       poseLand(P, 1 - this.landT / 150);
       rate = 60;
     }
+    // Held weapon at rest: follows the carrying arm so it bobs with the stride instead of staying frozen.
+    if (this.rig.weapon && !this.sm.is('Attacking') && !(this.sm.is('Dashing') && this.dash?.kind === 'flurry')) {
+      const rest = REST_ANGLE[this.weapon.def.category];
+      P.wa = rest.wa + (P.aL - 1.9) * 0.7;
+      P.wb = rest.wb + (P.bL - 1.7) * 0.7;
+      this.rig.swing = 0;
+    }
     this.rig.draw(this.cx, this.feetY, this.facing, P, rate, dt);
   }
 
@@ -709,6 +936,8 @@ export class Player extends Fighter implements AbilityHost {
     this.ctx.fx.removeTrail(this.fistTrail);
     this.ctx.fx.removeTrail(this.footTrail);
     this.ctx.fx.removeTrail(this.dashTrail);
+    this.ctx.fx.removeTrail(this.weaponTrail);
+    this.projectiles.destroy();
     this.input.destroy();
     super.destroy();
   }

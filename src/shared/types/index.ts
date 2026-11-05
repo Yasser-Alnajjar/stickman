@@ -10,11 +10,12 @@ export type AttributeId = 'vitality' | 'strength' | 'endurance' | 'agility' | 'f
 export type ItemId = string;
 /** `'boss'` is reserved for boss fighters; every other kind is registered by core content or a world pack. */
 export type EnemyKind = string;
-export type Element = 'physical' | 'fire' | 'lightning';
+export type Element = 'physical' | 'fire' | 'lightning' | 'ice';
 export type SfxName =
   | 'step' | 'jump' | 'land' | 'punch' | 'kick' | 'heavy' | 'whoosh' | 'hit' | 'hitHeavy' | 'block'
   | 'perfect' | 'dash' | 'dodge' | 'fire' | 'zap' | 'enemyHit' | 'enemyDie' | 'hurt' | 'death'
-  | 'pickup' | 'levelUp' | 'checkpoint' | 'quest' | 'questComplete' | 'questNew' | 'ui' | 'uiBack' | 'telegraph' | 'slam' | 'roar' | 'gate';
+  | 'pickup' | 'levelUp' | 'checkpoint' | 'quest' | 'questComplete' | 'questNew' | 'ui' | 'uiBack' | 'telegraph' | 'slam' | 'roar' | 'gate'
+  | 'slash' | 'stab' | 'chop' | 'smash' | 'magic' | 'special' | 'coin' | 'weaponSwitch' | 'unlock' | 'upgrade' | 'purchase' | 'denied';
 export type MusicTrack = 'city' | 'boss' | 'none';
 
 export interface Rect { x: number; y: number; w: number; h: number }
@@ -49,6 +50,36 @@ export interface AttackDef {
   /** Enemy only: ignore stagger while winding up/attacking. */
   superArmor?: boolean;
   telegraph?: boolean;
+  /** Player weapons: breaks a raised shield regardless of damage. */
+  armorBreak?: boolean;
+  /** Player weapons: ms of stagger applied on hit (subject to per-target lockout; never applied to bosses). */
+  stagger?: number;
+  /** Player weapons: the hitbox is centred on the owner and hits both sides (ground slams). */
+  radial?: boolean;
+  /** Player weapons: fires this projectile when the active phase begins. */
+  projectile?: ProjectileSpec;
+}
+
+/** A projectile fired by the player's weapons (bolts, crescent waves, ground shockwaves). */
+export interface ProjectileSpec {
+  speed: number;
+  w: number;
+  h: number;
+  /** ms before it expires. */
+  life: number;
+  color: number;
+  /** Extra targets it may pass through after the first hit; `-1` = unlimited (waves). */
+  pierce: number;
+  /** Vertical offset from the owner's centre. */
+  oy?: number;
+  /** Hugs the floor line (shockwaves) instead of flying level. */
+  ground?: boolean;
+  /** Explodes into an area hit where it ends. */
+  burst?: { radius: number; damageMult: number };
+  /** Fired both ways. */
+  bothSides?: boolean;
+  /** Damage multiplier relative to the attack that fired it. */
+  damageMult?: number;
 }
 
 export type AttackPhase = 'idle' | 'startup' | 'active' | 'recovery';
@@ -60,6 +91,8 @@ export interface HitSpec {
   comboScale: number;
   burn?: { dps: number; duration: number };
   extraStun?: number;
+  /** Weapon stagger in ms (see AttackDef.stagger). */
+  stagger?: number;
 }
 
 export type HitOutcome = 'ignored' | 'hit' | 'blocked' | 'perfect' | 'killed';
@@ -125,8 +158,20 @@ export interface ProfileData {
   checkpoint: CheckpointRef;
   /** Last lamp per region, so returning to a world resumes there without disturbing any other world. */
   checkpoints: Record<RegionId, RegionCheckpoint>;
+  /** `gold` is the single in-game currency (Gold Coins): an integer, never negative. */
   inventory: { items: Partial<Record<ItemId, number>>; gold: number };
+  /** Weapon ownership, equipment and upgrade levels (save v3). */
+  weapons: WeaponsState;
+  /** One-time reward claims (`boss:<id>`, `quest:<id>`, `chest:<region>:<id>`, `migration:*`); a claim is never granted twice. */
+  rewardClaims: string[];
   stats: { kills: number; deaths: number; playTimeMs: number };
+}
+
+export interface WeaponsState {
+  owned: string[];
+  equipped: string;
+  /** Upgrade level per weapon id, 1-based. */
+  levels: Record<string, number>;
 }
 
 export interface PlayerStats {
@@ -147,6 +192,9 @@ export interface HudSnapshot {
   stamina: number; maxStamina: number;
   energy: number; maxEnergy: number;
   cooldowns: Record<AbilityId, { remaining: number; total: number }>;
+  /** Equipped weapon and its special-ability cooldown. */
+  weaponId: string;
+  special: { remaining: number; total: number; cost: number };
 }
 
 export interface BossView { name: string; health: number; maxHealth: number; phase: number }

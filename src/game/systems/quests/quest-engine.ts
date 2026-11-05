@@ -2,6 +2,8 @@ import type { ItemId, ProfileData, QuestDef, QuestEvent, QuestProgress } from '@
 import { QUESTS, QUEST_ORDER } from '@/game/config/quests';
 import { addItem, addXp, itemCount } from '@/game/systems/progression/profile';
 import { buildCampaign } from '@/game/systems/campaign/progress';
+import { earnGold } from '@/game/economy/wallet';
+import { grantReward, questClaim, questWeapons } from '@/game/economy/rewards';
 
 export type QuestState = 'locked' | 'available' | 'active' | 'ready' | 'completed';
 
@@ -98,7 +100,7 @@ export function applyQuestEvent(p: ProfileData, ev: QuestEvent): QuestEventResul
   return { ready, objectives };
 }
 
-export interface QuestCompletion { id: string; xp: number; levelsGained: number }
+export interface QuestCompletion { id: string; xp: number; levelsGained: number; gold: number; weapons: string[] }
 
 /** Pays out a ready quest. */
 export function completeQuest(p: ProfileData, id: string): QuestCompletion | null {
@@ -108,10 +110,12 @@ export function completeQuest(p: ProfileData, id: string): QuestCompletion | nul
   entry.status = 'completed';
   const { reward } = q;
   const { levelsGained } = addXp(p, reward.xp);
-  p.inventory.gold += reward.gold ?? 0;
+  const gold = earnGold(p, reward.gold ?? 0);
   for (const [item, qty] of Object.entries(reward.items ?? {})) addItem(p, item as ItemId, qty ?? 0);
   for (const f of reward.flags ?? []) p.flags[f] = true;
-  return { id, xp: reward.xp, levelsGained };
+  // Weapon rewards go through the shared claim ledger, so a quest can never hand out its weapon twice.
+  const weapons = grantReward(p, questClaim(id), { weapons: questWeapons(id) }).weapons;
+  return { id, xp: reward.xp, levelsGained, gold, weapons };
 }
 
 /** Active quests ordered for the tracker. */

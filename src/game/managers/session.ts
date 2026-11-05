@@ -12,6 +12,12 @@ import { audio } from '@/game/managers/AudioManager';
 import { t } from '@/i18n';
 import { devFlags } from '@/devtools/flags';
 import { recordCompletion, shouldRecordCompletion } from '@/game/systems/campaign/campaign';
+import { earnGold } from '@/game/economy/wallet';
+import { bossClaim, bossWeapons, chestClaim, chestGold, chestWeapons, grantReward, type RewardResult } from '@/game/economy/rewards';
+import { equip, upgradeWeapon, type EquipResult, type UpgradeResult } from '@/game/weapons/ownership';
+import { purchaseWeapon, worldIndexOf, type PurchaseResult } from '@/game/weapons/shop';
+import { WEAPONS } from '@/game/weapons/registry';
+import { packOfRegion } from '@/game/world/registry';
 
 export interface PlayerHooks {
   restoreHealth(amount: number): void;
@@ -139,6 +145,8 @@ class GameSession {
       if (!quiet) {
         this.toast(t('Quest complete: {name}  (+{n} XP)', { name: t(q.title), n: done.xp }), 'good');
         audio.playQueued('questComplete');
+        if (done.gold > 0) this.toast(t('+{n} coins', { n: done.gold }), 'good');
+        this.announceWeapons(done.weapons, true);
       }
       if (done.levelsGained > 0) {
         if (!quiet) { this.toast(t('Level {n}!', { n: this.profile.level }), 'level'); audio.playQueued('levelUp'); }
@@ -152,6 +160,93 @@ class GameSession {
       }
     }
     if (res.completed.length) void this.autoSave(true);
+  }
+
+  /* ---------- economy & weapons ---------- */
+
+  /** Gold Coins in the purse. */
+  get gold(): number { return this.profile.inventory.gold; }
+
+  /**
+   * Credits coins from any source (a collected drop, a chest, a quest). The only way gold rises in play besides
+   * `grant`. Returns the amount credited.
+   */
+  earn(amount: number): number {
+    const n = earnGold(this.profile, amount);
+    if (n > 0) this.emit();
+    return n;
+  }
+
+  /** Toasts and plays the unlock fanfare for weapons that were just added. */
+  announceWeapons(ids: string[], queued = false): void {
+    for (const id of ids) {
+      const def = WEAPONS[id];
+      if (!def) continue;
+      this.toast(t('Weapon unlocked: {name}', { name: t(def.name) }), 'level');
+    }
+    if (ids.length) { if (queued) audio.playQueued('unlock'); else audio.play('unlock'); }
+  }
+
+  /** One-time reward through the shared claim ledger (see economy/rewards.ts). Repeats are ignored. */
+  grant(claim: string, bundle: { gold?: number; weapons?: string[] }): RewardResult {
+    const res = grantReward(this.profile, claim, bundle);
+    if (res.granted) {
+      if (res.gold > 0) this.toast(t('+{n} coins', { n: res.gold }), 'good');
+      this.announceWeapons(res.weapons);
+      this.emit();
+      if (res.gold > 0 || res.weapons.length) void this.autoSave(true);
+    }
+    return res;
+  }
+
+  /** The boss's weapon reward. Safe to call any number of times: the weapon is granted once. */
+  claimBossWeapon(boss: string): RewardResult {
+    return this.grant(bossClaim(boss), { weapons: bossWeapons(boss) });
+  }
+
+  /** Coins (by world) and any weapon stored in a treasure chest. Safe to call repeatedly. */
+  claimChest(region: string, pickup: string): RewardResult {
+    const idx = Math.max(0, worldIndexOf(packOfRegion(region)?.id ?? ''));
+    return this.grant(chestClaim(region, pickup), { gold: chestGold(idx), weapons: chestWeapons(region, pickup) });
+  }
+
+  buyWeapon(id: string): PurchaseResult {
+    const res = purchaseWeapon(this.profile, id);
+    if (res.ok) {
+      this.toast(t('Purchased {name} for {n} coins', { name: t(WEAPONS[id].name), n: res.price }), 'good');
+      audio.play('purchase');
+      this.emit();
+      void this.autoSave(true);
+    } else {
+      this.toast(t(res.reason === 'funds' ? 'Not enough coins' : res.reason === 'owned' ? 'You already own this weapon' : 'This weapon is not available yet'), 'warn');
+      audio.play('denied');
+    }
+    return res;
+  }
+
+  upgradeWeapon(id: string): UpgradeResult {
+    const res = upgradeWeapon(this.profile, id);
+    if (res.ok) {
+      this.toast(t('{name} upgraded to level {n}', { name: t(WEAPONS[id].name), n: res.level }), 'good');
+      audio.play('upgrade');
+      this.emit();
+      void this.autoSave(true);
+    } else {
+      this.toast(t(res.reason === 'funds' ? 'Not enough coins' : res.reason === 'max' ? 'Already at maximum level' : 'You do not own this weapon'), 'warn');
+      audio.play('denied');
+    }
+    return res;
+  }
+
+  equipWeapon(id: string, quiet = false): EquipResult {
+    const res = equip(this.profile, id);
+    if (res.ok) {
+      this.emit();
+      if (!quiet) void this.autoSave(true);
+    } else {
+      audio.play('denied');
+    }
+    return res;
   }
 
   /** Records the active checkpoint and remembers it as that region's own last lamp. */

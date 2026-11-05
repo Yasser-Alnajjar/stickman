@@ -14,6 +14,7 @@ import { poseAttack, poseDead, poseDodge, poseHurt, poseIdle, poseMove, posePoin
 import { audio } from '@/game/managers/AudioManager';
 import { session } from '@/game/managers/session';
 import { devFlags } from '@/devtools/flags';
+import { rollCoinDrop } from '@/game/economy/loot';
 import { t } from '@/i18n';
 
 export type { EnemyState };
@@ -34,6 +35,8 @@ export class Enemy extends Fighter {
   /** Set when the corpse has fully faded and can be cleaned up. */
   removed = false;
   onKilled?: (e: Enemy) => void;
+  /** 0 for enemies summoned by a boss: they give no coins, so a boss fight cannot be farmed by restarting it. */
+  lootScale = 1;
 
   protected readonly spawnX: number;
   protected patrolMin: number;
@@ -329,7 +332,7 @@ export class Enemy extends Fighter {
     const dir = this.cx >= fromX ? 1 : -1;
     // Raised shield: absorbs light frontal hits; heavy blows and abilities break the guard.
     const guardUp = !!this.def.guard && this.guardRaised(fromX);
-    const breaks = guardUp && (spec.def.damage >= 18 || spec.element !== 'physical');
+    const breaks = guardUp && (spec.def.damage >= 18 || spec.def.armorBreak === true || spec.element !== 'physical');
     const absorbs = guardUp && !breaks;
     const dmg = computeDamage({
       baseDamage: spec.def.damage, attackerAttack: attacker.attackStat, targetDefense: this.defenseStat,
@@ -355,6 +358,10 @@ export class Enemy extends Fighter {
     }
     this.onDamaged(spec, dir);
     return { outcome: 'hit', damage: dmg, dir };
+  }
+
+  override staggerImmune(): boolean {
+    return this.def.kind === 'boss' || this.def.stunScale <= 0 || (this.runner.running && !!this.runner.def?.superArmor);
   }
 
   private guardRaised(fromX: number): boolean {
@@ -441,8 +448,10 @@ export class Enemy extends Fighter {
   protected rewards(): void {
     const d = this.def;
     session.gainXp(d.xp, d.name);
-    session.profile.inventory.gold += d.gold;
     session.registerKill(d.kind);
+    // Coins are dropped as physical pickups; the purse only grows when the player collects them. This method runs once
+    // per enemy (die() is guarded by `alive`), and the spawner remembers the kill, so it cannot be farmed.
+    if (this.lootScale > 0) this.ctx.dropCoins(rollCoinDrop(d, Math.random), this.cx, this.feetY - 28);
     if (Math.random() < 0.12) this.ctx.dropItem(Math.random() < 0.6 ? 'health_tonic' : 'energy_cell', this.cx, this.feetY - 40);
   }
 

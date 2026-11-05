@@ -654,8 +654,9 @@ export class Boss extends Enemy {
   protected override rewards(): void {
     const d = this.bd;
     session.gainXp(d.xp, d.name);
-    session.profile.inventory.gold += d.gold;
-    session.toast(t('+{n} gold', { n: d.gold }), 'good');
+    // A boss pays its gold as a burst of physical coins and its weapon through the one-time claim ledger.
+    this.ctx.dropCoins(d.gold, this.cx, this.feetY - 40, 16);
+    session.claimBossWeapon(d.id);
     session.giveItem(d.drop);
     session.profile.stats.kills += 1;
     if (!session.profile.defeatedBosses.includes(d.id)) session.profile.defeatedBosses.push(d.id);

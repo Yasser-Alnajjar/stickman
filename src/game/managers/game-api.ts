@@ -122,6 +122,7 @@ export const gameApi = {
   async returnToMenu(): Promise<void> {
     const game = runtime.game;
     if (!game) return;
+    runtime.world?.coins.bank(); // uncollected coins are credited before the save, never lost
     await session.autoSave(true);
     game.scene.stop("World");
     game.scene.start("MainMenu");
@@ -165,6 +166,20 @@ export const gameApi = {
   },
   useItem(id: ItemId): boolean {
     return session.useItem(id);
+  },
+
+  /* ------------------------------------------------ weapons & economy */
+
+  equipWeapon(id: string): boolean {
+    const ok = session.equipWeapon(id).ok;
+    if (ok) audio.play("weaponSwitch");
+    return ok;
+  },
+  buyWeapon(id: string): boolean {
+    return session.buyWeapon(id).ok;
+  },
+  upgradeWeapon(id: string): boolean {
+    return session.upgradeWeapon(id).ok;
   },
 
   /* ------------------------------------------------ settings */

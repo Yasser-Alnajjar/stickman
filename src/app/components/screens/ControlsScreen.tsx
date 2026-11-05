@@ -6,6 +6,7 @@ const TOUCH_ROWS: [string, string][] = [
   ['⤒  👊  💥  🦶', 'Jump, light, heavy, kick'],
   ['⇢  ↺  🛡', 'Dash, dodge, block (hold)'],
   ['🔥  ⚡', 'Abilities (once unlocked)'],
+  ['✦  ⇄', 'Weapon special ability, swap to the next weapon'],
   ['🧪  🔋  ❚❚', 'Health Tonic, Energy Cell, Pause'],
 ];
 const ROWS: [string, string][] = [
@@ -19,6 +20,8 @@ const ROWS: [string, string][] = [
   ['S  ·  ↓ (hold)', 'Block. Tap just before a hit lands for a PERFECT block'],
   ['1', 'Fire Punch (energy)'],
   ['2', 'Lightning Dash (energy)'],
+  ['E', 'Weapon special ability (energy + cooldown)'],
+  ['Q  ·  R', 'Switch to the previous  ·  next owned weapon'],
   ['H  ·  G', 'Use Health Tonic  ·  Energy Cell'],
   ['Esc  ·  P  ·  Tab', 'Pause menu  ·  Skills'],
   ['F3', 'Show hitboxes (debug)'],

@@ -5,6 +5,7 @@ import { ABILITIES, ABILITY_ORDER } from '@/game/config/abilities';
 import { ATTRIBUTES, ATTRIBUTE_ORDER, LEVEL_BONUS, MAX_LEVEL, xpToNext } from '@/game/config/progression';
 import { PLAYER_CFG } from '@/game/config/player';
 import { WORLD_PACKS } from '@/game/world/worlds';
+import { defaultWeapons } from '@/game/weapons/ownership';
 
 /** Where a new game begins: the first registered world's city. */
 export function startCheckpoint(): { region: RegionId; id: string; x: number; y: number } {
@@ -23,6 +24,8 @@ export function createProfile(): ProfileData {
     checkpoint: startCheckpoint(),
     checkpoints: {},
     inventory: { items: {}, gold: 0 },
+    weapons: defaultWeapons(),
+    rewardClaims: [],
     stats: { kills: 0, deaths: 0, playTimeMs: 0 },
   };
   profile.health = deriveStats(profile).maxHealth;

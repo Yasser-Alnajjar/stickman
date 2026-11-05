@@ -1,4 +1,5 @@
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 import { atk, enemy } from '../enemy-kit';
 
 /** Aether Citadel (world 10, the finale): manifest (data only). */
@@ -179,5 +180,6 @@ export const aetherManifest: WorldPackMeta = {
     'Calm the Storm': 'اهدئ العاصفة', 'Defeat Storm Sovereign Zephyros on the Tempest Throne and end the campaign.': 'اهزم سلطان العاصفة زفيروس على عرش العاصفة وأنهِ الحملة.',
     'Defeat Storm Sovereign Zephyros': 'اهزم سلطان العاصفة زفيروس', 'Leave the marked columns, jump the orbs, and brace against the gale. In the last phase the storm never stops: keep moving. Rest at a lamp first.': 'اترك الأعمدة المعلَّمة، واقفز فوق الكرات، وقاوم الريح. في المرحلة الأخيرة لا تهدأ العاصفة: ابقَ متحركًا. استرح عند مصباح أولًا.',
   },
+  weapons: WORLD_WEAPONS.aether_citadel,
   load: () => import('./content').then((m) => m.content),
 };

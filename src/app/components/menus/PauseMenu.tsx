@@ -6,6 +6,7 @@ import { SettingsPanel } from '@/app/components/settings/SettingsPanel';
 import { ControlsScreen } from '@/app/components/screens/ControlsScreen';
 import { SkillTree } from '@/app/components/menus/SkillTree';
 import { InventoryPanel } from '@/app/components/menus/InventoryPanel';
+import { WeaponShop } from '@/app/components/weapons/WeaponShop';
 import { AboutScreen } from '@/app/components/screens/AboutScreen';
 import { QuestPanel } from '@/app/components/menus/QuestPanel';
 import { t as tr } from '@/i18n';
@@ -13,6 +14,7 @@ import { t as tr } from '@/i18n';
 const TABS: { id: Panel; label: string }[] = [
   { id: 'root', label: 'Pause' },
   { id: 'inventory', label: 'Inventory' },
+  { id: 'shop', label: 'Shop' },
   { id: 'skills', label: 'Skills' },
   { id: 'quests', label: 'Quests' },
   { id: 'settings', label: 'Settings' },
@@ -43,6 +45,7 @@ export function PauseMenu(): ReactElement {
             <div className="pause-root">
               <button ref={first} className="btn primary" onClick={() => gameApi.resume()}>{tr('Resume')}</button>
               <button className="btn" onClick={() => setPanel('inventory')}>{tr('Inventory')}</button>
+              <button className="btn" onClick={() => setPanel('shop')}>{tr('Weapon Shop')}</button>
               <button className="btn" onClick={() => setPanel('skills')}>{tr('Skills')}</button>
               <button className="btn" onClick={() => setPanel('quests')}>{tr('Quests')}</button>
               <button className="btn" onClick={() => setPanel('settings')}>{tr('Settings')}</button>
@@ -58,6 +61,7 @@ export function PauseMenu(): ReactElement {
             </div>
           )}
           {panel === 'inventory' && <InventoryPanel />}
+          {panel === 'shop' && <WeaponShop />}
           {panel === 'skills' && <SkillTree />}
           {panel === 'quests' && <QuestPanel />}
           {panel === 'settings' && <SettingsPanel />}

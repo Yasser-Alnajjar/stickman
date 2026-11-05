@@ -54,6 +54,8 @@ export abstract class Fighter {
   abstract receiveHit(spec: HitSpec, attacker: Fighter, fromX: number): HitResult;
   /** Called on the attacker after it successfully hits something. */
   onHitLanded(_target: Fighter, _spec: HitSpec, _res: HitResult): void { /* optional */ }
+  /** True when weapon stagger must not apply (bosses, enemies mid-super-armour). */
+  staggerImmune(): boolean { return false; }
   /** Stagger caused by perfect blocks / guard breaks. */
   stun(_ms: number): void { /* optional */ }
 

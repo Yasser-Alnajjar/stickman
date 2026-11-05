@@ -1,4 +1,5 @@
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 import { atk, enemy } from '../enemy-kit';
 
 /** Frostpeak Station (world 5): manifest (data only). */
@@ -172,5 +173,6 @@ export const frostManifest: WorldPackMeta = {
     'Thaw the Reactor': 'أذب المفاعل', 'Defeat Cryo-Matron Glacia in the Cryo Core.': 'اهزم سيدة التجميد غلاسيا في قلب التجميد.',
     'Defeat Cryo-Matron Glacia': 'اهزم سيدة التجميد غلاسيا', 'Dodge the ice rows by jumping between them. Do not stand still in the blizzard. Rest at a lamp first.': 'تفادَ صفوف الجليد بالقفز بينها. لا تقف ساكنًا في العاصفة. استرح عند مصباح أولًا.',
   },
+  weapons: WORLD_WEAPONS.frostpeak_station,
   load: () => import('./content').then((m) => m.content),
 };

@@ -166,6 +166,11 @@ export function DevPanel(): ReactElement {
       </div>
       {open && (
         <div className="dt-panel" onKeyDown={(e) => e.stopPropagation()}>
+          <div>
+            <Btn onClick={() => dev.giveCoins(1000)}>{dt("+1,000 coins")}</Btn>{" "}
+            <Btn onClick={() => dev.giveCoins(10000)}>{dt("+10,000 coins")}</Btn>{" "}
+            <Btn onClick={dev.giveAllWeapons}>{dt("All weapons (max level)")}</Btn>
+          </div>
           {snap.sandbox && (
             <div className="warn">
               {dt("Sandbox: saves are disabled, your real save is untouched.")}{" "}

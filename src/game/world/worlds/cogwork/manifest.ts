@@ -1,4 +1,5 @@
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 import { atk, enemy } from '../enemy-kit';
 
 /** Cogwork Depths (world 9): manifest (data only). */
@@ -178,5 +179,6 @@ export const cogworkManifest: WorldPackMeta = {
     'Stop the Clock': 'أوقف الساعة', 'Defeat Clockmaster Horol in the Great Escapement.': 'اهزم سيّد الساعات هورول في المنظّم العظيم.',
     'Defeat Clockmaster Horol': 'اهزم سيّد الساعات هورول', 'Pistons fall in rhythm: stand in the gaps. Jump the saws, and never stand still near a ticking bomb. Rest at a lamp first.': 'المكابس تهوي بإيقاع: قف في الفجوات. اقفز فوق المناشير ولا تقف ساكنًا قرب قنبلة تدق. استرح عند مصباح أولًا.',
   },
+  weapons: WORLD_WEAPONS.cogwork_depths,
   load: () => import('./content').then((m) => m.content),
 };

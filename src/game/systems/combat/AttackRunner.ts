@@ -74,6 +74,8 @@ export class AttackRunner {
   /** Writes the current hitbox in world space. Centre of the owner body + facing-relative offset. */
   hitbox(cx: number, cy: number, facing: Facing, out: Phaser.Geom.Rectangle): Phaser.Geom.Rectangle {
     const hb = this.def!.hitbox;
+    // Radial attacks (ground slams) are centred on the owner and hit on both sides.
+    if (this.def!.radial) return out.setTo(cx + hb.ox - hb.w / 2, cy + hb.oy - hb.h / 2, hb.w, hb.h);
     // The near edge is extended back to the owner's centre so point-blank targets (standing inside the
     // owner's body) are still hittable. Forward reach is unchanged.
     const near = Math.min(hb.ox - hb.w / 2, -6);

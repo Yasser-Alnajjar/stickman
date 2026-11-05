@@ -1,5 +1,6 @@
 import { COLORS } from '@/shared/constants';
 import type { WorldPackMeta } from '../../types';
+import { WORLD_WEAPONS } from '@/game/weapons/catalog/worlds';
 
 /** Neon Street: manifest (data only). The level geometry and painters live in ./content and load on demand. */
 export const neonManifest: WorldPackMeta = {
@@ -60,5 +61,6 @@ export const neonManifest: WorldPackMeta = {
     'A rain-lit megacity where gang lords rule the rooftops. Fight through the plaza, the market and the warehouse district to the Warden Gate.': 'مدينة عملاقة تغمرها أمطار النيون، تحكم عصابات زعمائها أسطح المباني. اشقّ طريقك عبر الساحة والسوق وحي المستودعات إلى بوابة الحارس.',
     'NEON': 'النيون',
   },
+  weapons: WORLD_WEAPONS.neon_street,
   load: () => import('./content').then((m) => m.content),
 };

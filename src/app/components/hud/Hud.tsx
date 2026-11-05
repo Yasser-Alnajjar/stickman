@@ -6,6 +6,9 @@ import { ABILITIES, ABILITY_ORDER } from '@/game/config/abilities';
 import { MAX_LEVEL, xpToNext } from '@/game/config/progression';
 import { trackedQuests } from '@/game/systems/quests/quest-engine';
 import { useDevice } from '@/app/mobile/device';
+import { WEAPONS } from '@/game/weapons/registry';
+import { levelOf } from '@/game/weapons/ownership';
+import { RARITY_CSS, RARITY_LABEL, RARITY_MARK } from '@/game/weapons/presentation';
 import { t } from '@/i18n';
 
 function Bar({ value, max, cls, label }: { value: number; max: number; cls: string; label: string }): ReactElement {
@@ -41,6 +44,7 @@ export function Hud(): ReactElement {
   const combo = useGameStore((s) => s.combo);
   const banner = useGameStore((s) => s.banner);
   const tracked = trackedQuests(profile);
+  const weapon = WEAPONS[hud.weaponId];
   const xpNeed = profile.level >= MAX_LEVEL ? 1 : xpToNext(profile.level);
   const xpPct = profile.level >= MAX_LEVEL ? 100 : (profile.xp / xpNeed) * 100;
 
@@ -54,6 +58,17 @@ export function Hud(): ReactElement {
           <Bar value={hud.energy} max={hud.maxEnergy} cls="en" label="Energy" />
           <div className="xpbar" role="progressbar" aria-label="Experience" aria-valuenow={profile.xp}><div style={{ width: `${xpPct}%` }} /></div>
           {profile.skillPoints > 0 && <div className="sp-note">{t(profile.skillPoints > 1 ? '{n} skill points (Tab)' : '{n} skill point (Tab)', { n: profile.skillPoints })}</div>}
+          <div className="hud-gear">
+            <div className="coin-ind" key={`c${profile.inventory.gold}`} title={t('Gold Coins')} aria-label={t('Gold Coins')}>
+              <span aria-hidden="true">🪙</span> <b>{profile.inventory.gold.toLocaleString()}</b>
+            </div>
+            {weapon && (
+              <div className="weapon-ind" key={weapon.id} style={{ ['--rc' as string]: RARITY_CSS[weapon.rarity] }} title={t(weapon.name)}>
+                <span aria-hidden="true">{weapon.icon}</span> <span className="wname">{t(weapon.name)}</span>
+                <small>{t('Lv {n}', { n: levelOf(profile, weapon.id) })} <span aria-hidden="true">{RARITY_MARK[weapon.rarity]}</span><span className="sr-only">{t(RARITY_LABEL[weapon.rarity])}</span></small>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -100,7 +115,22 @@ export function Hud(): ReactElement {
               </div>
             );
           })}
+          {weapon && (() => {
+            const sp = hud.special;
+            const frac = sp.total > 0 ? sp.remaining / sp.total : 0;
+            const noEnergy = hud.energy < sp.cost;
+            return (
+              <div className={`slot special ${noEnergy ? 'low' : ''}`} style={{ ['--c' as string]: RARITY_CSS[weapon.rarity] }} title={`${t(weapon.special.name)} — ${t('Cooldown {n}s', { n: (sp.total / 1000).toFixed(0) })}`}>
+                <span className="slot-icon">✦</span>
+                <span className="slot-key">E</span>
+                <span className="slot-cost">{sp.cost}</span>
+                {frac > 0 && <div className="cd" style={{ height: `${frac * 100}%` }} />}
+                {frac > 0 && <span className="cd-text">{(sp.remaining / 1000).toFixed(1)}</span>}
+              </div>
+            );
+          })()}
         </div>
+        <div className="weapon-keys small muted" aria-hidden="true"><kbd>Q</kbd> <kbd>R</kbd> {t('Switch weapon')}</div>
       </div>
 
       {combo >= 2 && <div className="combo" key={combo}>{combo}<small> {t('HIT COMBO')}</small></div>}

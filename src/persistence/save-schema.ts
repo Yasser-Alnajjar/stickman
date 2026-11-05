@@ -6,12 +6,24 @@ import { QUESTS } from '@/game/config/quests';
 import { createProfile, deriveStats, startCheckpoint } from '@/game/systems/progression/profile';
 import { allRegionIds } from '@/game/world/registry';
 import { qualifyLegacyCollected } from './legacy-v1';
+import { sanitizeWeapons } from '@/game/weapons/ownership';
+import { bossClaim, bossWeapons, chestClaim, chestWeapons, questClaim, questWeapons } from '@/game/economy/rewards';
+import { sanitizeGold } from '@/game/economy/wallet';
+import { STARTING_WEAPON } from '@/game/weapons/registry';
 
 /**
+ * v2 -> v3: weapons and the economy. The profile gains `weapons` (owned / equipped / levels) and `rewardClaims`.
+ * Nothing existing is reset. Existing progress is honoured retroactively: weapons tied to bosses already defeated,
+ * quests already completed and chests already opened are granted once and recorded as claims, so they can never be
+ * paid again; the balance is topped up to a small starting purse (see MIGRATION_PURSE).
+ *
  * v1 -> v2: pickups are stored per region (`region:pickupId`) and every region remembers its own last checkpoint.
  * v2 also lifted the old 256/2048 list caps (nothing in a save is ever truncated).
  */
-export const CURRENT_SAVE_VERSION = 2;
+export const CURRENT_SAVE_VERSION = 3;
+
+/** Minimum Gold Coins a migrated save holds, granted once (claim `migration:v3-purse`). */
+export const MIGRATION_PURSE = 150;
 
 export interface SaveFile {
   version: number;
@@ -30,6 +42,34 @@ export const MIGRATIONS: Record<number, Migration> = {
     profile.checkpoints = cp && typeof cp.region === 'string' && typeof cp.id === 'string'
       ? { [cp.region]: { id: cp.id, x: cp.x, y: cp.y } }
       : {};
+    return { ...raw, profile };
+  },
+  2: (raw) => {
+    const profile = isObj(raw.profile) ? { ...raw.profile } : {};
+    const owned = new Set<string>([STARTING_WEAPON]);
+    const claims = new Set<string>(Array.isArray(profile.rewardClaims) ? profile.rewardClaims.filter((c): c is string => typeof c === 'string') : []);
+    const grant = (claim: string, ids: string[]): void => {
+      if (claims.has(claim)) return;
+      claims.add(claim);
+      for (const id of ids) owned.add(id);
+    };
+    if (Array.isArray(profile.defeatedBosses)) for (const b of profile.defeatedBosses) if (typeof b === 'string') grant(bossClaim(b), bossWeapons(b));
+    if (isObj(profile.quests)) {
+      for (const [id, q] of Object.entries(profile.quests)) if (isObj(q) && (q.status === 'completed' || q.status === 'ready')) grant(questClaim(id), questWeapons(id));
+    }
+    if (Array.isArray(profile.collected)) {
+      for (const key of profile.collected) {
+        if (typeof key !== 'string') continue;
+        const i = key.indexOf(':');
+        if (i > 0) grant(chestClaim(key.slice(0, i), key.slice(i + 1)), chestWeapons(key.slice(0, i), key.slice(i + 1)));
+      }
+    }
+    const inv = isObj(profile.inventory) ? { ...profile.inventory } : {};
+    inv.gold = Math.max(sanitizeGold(inv.gold), MIGRATION_PURSE);
+    claims.add('migration:v3-purse');
+    profile.inventory = inv;
+    profile.weapons = { owned: [...owned], equipped: STARTING_WEAPON, levels: {} };
+    profile.rewardClaims = [...claims];
     return { ...raw, profile };
   },
 };
@@ -154,7 +194,9 @@ export function validateSave(raw: unknown): SaveResult {
     collected: strList(p.collected),
     checkpoint,
     checkpoints,
-    inventory: { items, gold: Math.floor(num(inv.gold, 0, 9_999_999, 0)) },
+    inventory: { items, gold: sanitizeGold(inv.gold) },
+    weapons: sanitizeWeapons(p.weapons),
+    rewardClaims: strList(p.rewardClaims),
     stats: {
       kills: Math.floor(num(stats.kills, 0, 1e7, 0)),
       deaths: Math.floor(num(stats.deaths, 0, 1e6, 0)),
